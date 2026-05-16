@@ -150,7 +150,7 @@ Al crear una cuenta confirmás haber leído y aceptado estos términos.`;
 
 function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState("login");
-  const [f, setF] = useState({ email:"", password:"", name:"", username:"", city:"", whatsapp:"" });
+  const [f, setF] = useState({ email:"", password:"", name:"", username:"", city:"", whatsapp:"", provincia:"", canton:"" });
   const [err, setErr]       = useState("");
   const [loading, setLoading] = useState(false);
   const [terms, setTerms]   = useState(false);
@@ -176,7 +176,7 @@ function AuthScreen({ onLogin }) {
         if (existing) return setErr("Ese usuario ya está registrado.");
         const { data, error } = await supabase.auth.signUp({ email:f.email, password:f.password });
         if (error) return setErr(error.message);
-        const profile = { id:data.user.id, username:key, name:f.name.trim(), city:f.city.trim(), whatsapp:f.whatsapp.trim(), groups:[] };
+        const profile = { id:data.user.id, username:key, name:f.name.trim(), city:f.city.trim(), whatsapp:f.whatsapp.trim(), provincia:f.provincia, canton:f.canton.trim(), groups:[] };
         await supabase.from("profiles").insert(profile);
         await supabase.from("user_cromos").insert({ user_id:data.user.id, have:[], doubles:[] });
         onLogin(profile);
@@ -218,6 +218,21 @@ function AuthScreen({ onLogin }) {
               <div>
                 <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CIUDAD / ZONA</div>
                 <input className="input" name="city" placeholder="Ej: San José, Heredia…" value={f.city} onChange={hc}/>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                <div>
+                  <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>PROVINCIA</div>
+                  <select className="input" name="provincia" value={f.provincia} onChange={hc} style={{cursor:"pointer"}}>
+                    <option value="">Seleccioná...</option>
+                    {["San José","Alajuela","Cartago","Heredia","Guanacaste","Puntarenas","Limón"].map(p=>(
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CANTÓN</div>
+                  <input className="input" name="canton" placeholder="Ej: Curridabat" value={f.canton} onChange={hc}/>
+                </div>
               </div>
               <div>
                 <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>WHATSAPP <span style={{color:G.muted,fontWeight:400}}>(con código de país)</span></div>
@@ -828,6 +843,8 @@ function GroupDetail({ group, user, onBack, onLeave }) {
 function ProfileScreen({ user, onUserUpdate, onLogout }) {
   const [city,     setCity]   = useState(user.city||"");
   const [whatsapp, setWa]     = useState(user.whatsapp||"");
+  const [provincia,setProv]   = useState(user.provincia||"");
+  const [canton,   setCanton] = useState(user.canton||"");
   const [saved,    setSaved]  = useState(false);
   const [avatar,   setAvatar] = useState(user.avatar_url||null);
   const [uploading,setUploading] = useState(false);
@@ -839,8 +856,8 @@ function ProfileScreen({ user, onUserUpdate, onLogout }) {
   },[user.id]);
 
   const save = async () => {
-    await supabase.from("profiles").update({city:city.trim(),whatsapp:whatsapp.trim()}).eq("id",user.id);
-    onUserUpdate({...user,city:city.trim(),whatsapp:whatsapp.trim()});
+    await supabase.from("profiles").update({city:city.trim(),whatsapp:whatsapp.trim(),provincia,canton:canton.trim()}).eq("id",user.id);
+    onUserUpdate({...user,city:city.trim(),whatsapp:whatsapp.trim(),provincia,canton:canton.trim()});
     setSaved(true); setTimeout(()=>setSaved(false),2000);
   };
 
@@ -901,6 +918,21 @@ function ProfileScreen({ user, onUserUpdate, onLogout }) {
               <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CIUDAD / ZONA</div>
               <input className="input" value={city} onChange={e=>setCity(e.target.value)} placeholder="Tu ciudad o zona"/>
             </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <div>
+                <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>PROVINCIA</div>
+                <select className="input" value={provincia} onChange={e=>setProv(e.target.value)} style={{cursor:"pointer"}}>
+                  <option value="">Seleccioná...</option>
+                  {["San José","Alajuela","Cartago","Heredia","Guanacaste","Puntarenas","Limón"].map(p=>(
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CANTÓN</div>
+                <input className="input" value={canton} onChange={e=>setCanton(e.target.value)} placeholder="Ej: Curridabat"/>
+              </div>
+            </div>
             <div>
               <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>WHATSAPP <span style={{color:G.muted,fontWeight:400}}>(con código de país)</span></div>
               <input className="input" value={whatsapp} onChange={e=>setWa(e.target.value)} placeholder="Ej: 50688887777"/>
@@ -945,6 +977,159 @@ function ProfileScreen({ user, onUserUpdate, onLogout }) {
     </div>
   );
 }
+
+// ─── MERCADO PÚBLICO ──────────────────────────────────────────────────────────
+const PROVINCIAS = ["Todas","San José","Alajuela","Cartago","Heredia","Guanacaste","Puntarenas","Limón"];
+
+function MercadoScreen({ user }) {
+  const [users,    setUsers]    = useState([]);
+  const [cromos,   setCromos]   = useState({});
+  const [loading,  setLoading]  = useState(true);
+  const [filtProv, setFiltProv] = useState("Todas");
+  const [filtCant, setFiltCant] = useState("");
+  const [filtSec,  setFiltSec]  = useState("all");
+  const [search,   setSearch]   = useState("");
+  const [mode,     setMode]     = useState("necesitan"); // necesitan | tienen
+
+  useEffect(()=>{
+    const load = async () => {
+      const {data:profs} = await supabase.from("profiles").select("*").neq("id", user.id);
+      const {data:crms}  = await supabase.from("user_cromos").select("*");
+      const map = {};
+      (crms||[]).forEach(c=>{ map[c.user_id]={have:c.have||[],doubles:c.doubles||[]}; });
+      setUsers(profs||[]);
+      setCromos(map);
+      setLoading(false);
+    };
+    load();
+  },[]);
+
+  const myData    = cromos[user.id]||{have:[],doubles:[]};
+  const myMissing = ALL_CROMOS.filter(c=>!myData.have.includes(c.id)).map(c=>c.id);
+
+  const filtered = users.filter(u=>{
+    if(filtProv!=="Todas" && u.provincia!==filtProv) return false;
+    if(filtCant.trim() && !u.canton?.toLowerCase().includes(filtCant.toLowerCase())) return false;
+    if(search.trim() && !u.name.toLowerCase().includes(search.toLowerCase()) && !u.username.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const secCromos = filtSec==="all" ? ALL_CROMOS : ALL_CROMOS.filter(c=>c.section===filtSec);
+  const secInfo   = SECTIONS.find(s=>s.id===filtSec);
+
+  return (
+    <div className="ani">
+      <div className="h1" style={{fontSize:24,letterSpacing:2,marginBottom:6}}>MERCADO DE INTERCAMBIOS</div>
+      <div style={{color:G.muted,fontSize:13,marginBottom:18}}>Encontrá usuarios para intercambiar sin necesidad de estar en el mismo grupo.</div>
+
+      {/* Filtros */}
+      <div className="card" style={{marginBottom:16,padding:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginBottom:12}}>
+          <div>
+            <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>PROVINCIA</div>
+            <select className="input" value={filtProv} onChange={e=>setFiltProv(e.target.value)} style={{cursor:"pointer"}}>
+              {PROVINCIAS.map(p=><option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CANTÓN</div>
+            <input className="input" placeholder="Ej: Curridabat" value={filtCant} onChange={e=>setFiltCant(e.target.value)}/>
+          </div>
+          <div>
+            <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>BUSCAR USUARIO</div>
+            <input className="input" placeholder="Nombre o @usuario" value={search} onChange={e=>setSearch(e.target.value)}/>
+          </div>
+          <div>
+            <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>SELECCIÓN / PAÍS</div>
+            <select className="input" value={filtSec} onChange={e=>setFiltSec(e.target.value)} style={{cursor:"pointer"}}>
+              <option value="all">Todas las selecciones</option>
+              {SECTIONS.map(s=><option key={s.id} value={s.id}>{s.flag} {s.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Modo */}
+        <div style={{display:"flex",gap:8}}>
+          <div style={{fontSize:12,color:G.muted,fontWeight:700,alignSelf:"center"}}>Ver quién:</div>
+          {[["necesitan","🔴 Necesita lo que yo tengo doble"],["tienen","🟢 Tiene lo que a mí me falta"]].map(([k,l])=>(
+            <button key={k} className="btn btn-sm" onClick={()=>setMode(k)}
+              style={{background:mode===k?G.accent:G.border,color:mode===k?"#08100a":G.muted}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{display:"flex",justifyContent:"center",padding:40}}><div className="spinner"/></div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {filtered.length===0 ? (
+            <div className="card" style={{textAlign:"center",padding:40}}>
+              <div style={{fontSize:40,marginBottom:10}}>🔍</div>
+              <div style={{color:G.muted}}>No hay usuarios con esos filtros.</div>
+            </div>
+          ) : filtered.map(u=>{
+            const ud = cromos[u.id]||{have:[],doubles:[]};
+            const uMissing = ALL_CROMOS.filter(c=>!ud.have.includes(c.id)).map(c=>c.id);
+
+            // Lo que yo le puedo dar (tengo doble y él necesita)
+            const iCanGive  = myData.doubles.filter(id=>uMissing.includes(id) && secCromos.find(c=>c.id===id));
+            // Lo que él me puede dar (tiene doble y yo necesito)
+            const theyGive  = ud.doubles.filter(id=>myMissing.includes(id) && secCromos.find(c=>c.id===id));
+
+            const relevant  = mode==="necesitan" ? iCanGive : theyGive;
+            if(relevant.length===0) return null;
+
+            return (
+              <div key={u.id} className="match-row">
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:12}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    {u.avatar_url
+                      ? <img src={u.avatar_url} style={{width:40,height:40,borderRadius:"50%",objectFit:"cover",border:`2px solid ${G.accent}`}}/>
+                      : <div style={{width:40,height:40,borderRadius:"50%",background:G.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>👤</div>}
+                    <div>
+                      <div style={{fontWeight:800,fontSize:15}}>{u.name}</div>
+                      <div style={{fontSize:12,color:G.muted}}>
+                        @{u.username}
+                        {u.provincia && <span className="badge b-blue" style={{marginLeft:6,fontSize:10}}>📍 {u.provincia}{u.canton?`, ${u.canton}`:""}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <span className="badge b-gold">{relevant.length} cromos</span>
+                    {u.whatsapp && (
+                      <a href={`https://wa.me/${u.whatsapp.replace(/\D/g,"")}?text=${encodeURIComponent(
+                        `¡Hola ${u.name}! Te encontré en Cromos Panini 2026.\n\n`+
+                        (iCanGive.length>0?`✅ Yo te puedo dar: ${iCanGive.slice(0,5).join(", ")}${iCanGive.length>5?` y ${iCanGive.length-5} más`:""}\n`:"")+
+                        (theyGive.length>0?`🔄 Yo necesito: ${theyGive.slice(0,5).join(", ")}${theyGive.length>5?` y ${theyGive.length-5} más`:""}`:"")+
+                        `\n\n¿Hacemos un intercambio?`
+                      )}`}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{background:"#25D366",color:"#fff",padding:"5px 12px",borderRadius:8,
+                          fontSize:12,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:5}}>
+                        💬 WhatsApp
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {relevant.slice(0,15).map(id=>{
+                    const s = SECTIONS.find(sec=>id.startsWith(sec.id));
+                    return <span key={id} className={`badge ${mode==="necesitan"?"b-green":"b-red"}`} style={{fontSize:10}}>{s?.flag} {id}</span>;
+                  })}
+                  {relevant.length>15&&<span style={{fontSize:11,color:G.muted}}>+{relevant.length-15} más</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── APP PRINCIPAL ────────────────────────────────────────────────────────────
 export default function App() {
   const [user,    setUser]    = useState(null);
@@ -984,9 +1169,10 @@ export default function App() {
   );
 
   const TABS = [
-    {id:"cromos",label:"⚽ Mis Cromos"},
-    {id:"grupos",label:"🏘️ Grupos"},
-    {id:"perfil",label:"👤 Perfil"},
+    {id:"cromos", label:"⚽ Mi Álbum"},
+    {id:"mercado",label:"🔄 Mercado"},
+    {id:"grupos", label:"🏘️ Grupos"},
+    {id:"perfil", label:"👤 Perfil"},
   ];
 
   return (
@@ -1018,9 +1204,10 @@ export default function App() {
           </div>
         </div>
         <div style={{maxWidth:960,margin:"0 auto",padding:"22px 16px"}}>
-          {tab==="cromos"&&<CromosScreen user={user}/>}
-          {tab==="grupos"&&<GroupsScreen user={user} onUserUpdate={updateUser}/>}
-          {tab==="perfil"&&<ProfileScreen user={user} onUserUpdate={updateUser} onLogout={logout}/>}
+          {tab==="cromos"  && <CromosScreen user={user}/>}
+          {tab==="mercado" && <MercadoScreen user={user}/>}
+          {tab==="grupos"  && <GroupsScreen user={user} onUserUpdate={updateUser}/>}
+          {tab==="perfil"  && <ProfileScreen user={user} onUserUpdate={updateUser} onLogout={logout}/>}
         </div>
       </div>
     </>
