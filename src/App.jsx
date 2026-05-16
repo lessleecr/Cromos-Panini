@@ -217,23 +217,12 @@ function AuthScreen({ onLogin }) {
               </div>
               <div>
                 <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CIUDAD / ZONA</div>
-                <input className="input" name="city" placeholder="Ej: San José, Heredia…" value={f.city} onChange={hc}/>
+                <input className="input" name="city" placeholder="Ej: Barrio, urbanización…" value={f.city} onChange={hc}/>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                <div>
-                  <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>PROVINCIA</div>
-                  <select className="input" name="provincia" value={f.provincia} onChange={hc} style={{cursor:"pointer"}}>
-                    <option value="">Seleccioná...</option>
-                    {["San José","Alajuela","Cartago","Heredia","Guanacaste","Puntarenas","Limón"].map(p=>(
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CANTÓN</div>
-                  <input className="input" name="canton" placeholder="Ej: Curridabat" value={f.canton} onChange={hc}/>
-                </div>
-              </div>
+              <ProvinciaCantonSelect
+                provincia={f.provincia} canton={f.canton}
+                onProvincia={v=>setF(p=>({...p,provincia:v,canton:""}))}
+                onCanton={v=>setF(p=>({...p,canton:v}))}/>
               <div>
                 <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>WHATSAPP <span style={{color:G.muted,fontWeight:400}}>(con código de país)</span></div>
                 <input className="input" name="whatsapp" placeholder="Ej: 50688887777" value={f.whatsapp} onChange={hc}/>
@@ -916,23 +905,12 @@ function ProfileScreen({ user, onUserUpdate, onLogout }) {
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <div>
               <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CIUDAD / ZONA</div>
-              <input className="input" value={city} onChange={e=>setCity(e.target.value)} placeholder="Tu ciudad o zona"/>
+              <input className="input" value={city} onChange={e=>setCity(e.target.value)} placeholder="Barrio, urbanización…"/>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              <div>
-                <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>PROVINCIA</div>
-                <select className="input" value={provincia} onChange={e=>setProv(e.target.value)} style={{cursor:"pointer"}}>
-                  <option value="">Seleccioná...</option>
-                  {["San José","Alajuela","Cartago","Heredia","Guanacaste","Puntarenas","Limón"].map(p=>(
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CANTÓN</div>
-                <input className="input" value={canton} onChange={e=>setCanton(e.target.value)} placeholder="Ej: Curridabat"/>
-              </div>
-            </div>
+            <ProvinciaCantonSelect
+              provincia={provincia} canton={canton}
+              onProvincia={v=>{ setProv(v); setCanton(""); }}
+              onCanton={v=>setCanton(v)}/>
             <div>
               <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>WHATSAPP <span style={{color:G.muted,fontWeight:400}}>(con código de país)</span></div>
               <input className="input" value={whatsapp} onChange={e=>setWa(e.target.value)} placeholder="Ej: 50688887777"/>
@@ -979,13 +957,46 @@ function ProfileScreen({ user, onUserUpdate, onLogout }) {
 }
 
 // ─── MERCADO PÚBLICO ──────────────────────────────────────────────────────────
-const PROVINCIAS = ["Todas","San José","Alajuela","Cartago","Heredia","Guanacaste","Puntarenas","Limón"];
+const PROVINCIAS = ["San José","Alajuela","Cartago","Heredia","Guanacaste","Puntarenas","Limón"];
+
+const CANTONES = {
+  "San José":    ["San José","Escazú","Desamparados","Puriscal","Tarrazú","Aserrí","Mora","Goicoechea","Santa Ana","Alajuelita","Vásquez de Coronado","Acosta","Tibás","Moravia","Montes de Oca","Turrubares","Dota","Curridabat","Pérez Zeledón","León Cortés"],
+  "Alajuela":    ["Alajuela","San Ramón","Grecia","San Mateo","Atenas","Naranjo","Palmares","Poás","Orotina","San Carlos","Zarcero","Sarchí","Upala","Los Chiles","Guatuso","Río Cuarto"],
+  "Cartago":     ["Cartago","Paraíso","La Unión","Jiménez","Turrialba","Alvarado","Oreamuno","El Guarco"],
+  "Heredia":     ["Heredia","Barva","Santo Domingo","Santa Bárbara","San Rafael","San Isidro","Belén","Flores","San Pablo","Sarapiquí"],
+  "Guanacaste":  ["Liberia","Nicoya","Santa Cruz","Bagaces","Carrillo","Cañas","Abangares","Tilarán","Nandayure","La Cruz","Hojancha"],
+  "Puntarenas":  ["Puntarenas","Esparza","Buenos Aires","Montes de Oro","Osa","Quepos","Golfito","Coto Brus","Parrita","Corredores","Garabito","Monteverde"],
+  "Limón":       ["Limón","Pococí","Siquirres","Talamanca","Matina","Guácimo"],
+};
+
+function ProvinciaCantonSelect({ provincia, canton, onProvincia, onCanton, includeTodas=false }) {
+  const cantones = provincia && CANTONES[provincia] ? CANTONES[provincia] : [];
+  return (
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      <div>
+        <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>PROVINCIA</div>
+        <select className="input" value={provincia} onChange={e=>{ onProvincia(e.target.value); onCanton(""); }} style={{cursor:"pointer"}}>
+          <option value="">{includeTodas?"Todas las provincias":"Seleccioná..."}</option>
+          {PROVINCIAS.map(p=><option key={p} value={p}>{p}</option>)}
+        </select>
+      </div>
+      <div>
+        <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CANTÓN</div>
+        <select className="input" value={canton} onChange={e=>onCanton(e.target.value)}
+          disabled={!provincia||cantones.length===0} style={{cursor:provincia?"pointer":"not-allowed",opacity:provincia?1:.5}}>
+          <option value="">{provincia?"Todos los cantones":"Primero elegí provincia"}</option>
+          {cantones.map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
 
 function MercadoScreen({ user }) {
   const [users,    setUsers]    = useState([]);
   const [cromos,   setCromos]   = useState({});
   const [loading,  setLoading]  = useState(true);
-  const [filtProv, setFiltProv] = useState("Todas");
+  const [filtProv, setFiltProv] = useState("");
   const [filtCant, setFiltCant] = useState("");
   const [filtSec,  setFiltSec]  = useState("all");
   const [search,   setSearch]   = useState("");
@@ -1008,8 +1019,8 @@ function MercadoScreen({ user }) {
   const myMissing = ALL_CROMOS.filter(c=>!myData.have.includes(c.id)).map(c=>c.id);
 
   const filtered = users.filter(u=>{
-    if(filtProv!=="Todas" && u.provincia!==filtProv) return false;
-    if(filtCant.trim() && !u.canton?.toLowerCase().includes(filtCant.toLowerCase())) return false;
+    if(filtProv && u.provincia!==filtProv) return false;
+    if(filtCant && u.canton!==filtCant) return false;
     if(search.trim() && !u.name.toLowerCase().includes(search.toLowerCase()) && !u.username.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -1024,17 +1035,12 @@ function MercadoScreen({ user }) {
 
       {/* Filtros */}
       <div className="card" style={{marginBottom:16,padding:14}}>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginBottom:12}}>
-          <div>
-            <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>PROVINCIA</div>
-            <select className="input" value={filtProv} onChange={e=>setFiltProv(e.target.value)} style={{cursor:"pointer"}}>
-              {PROVINCIAS.map(p=><option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
-          <div>
-            <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>CANTÓN</div>
-            <input className="input" placeholder="Ej: Curridabat" value={filtCant} onChange={e=>setFiltCant(e.target.value)}/>
-          </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10,marginBottom:12}}>
+          <ProvinciaCantonSelect
+            provincia={filtProv} canton={filtCant}
+            onProvincia={v=>{ setFiltProv(v); setFiltCant(""); }}
+            onCanton={v=>setFiltCant(v)}
+            includeTodas={true}/>
           <div>
             <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>BUSCAR USUARIO</div>
             <input className="input" placeholder="Nombre o @usuario" value={search} onChange={e=>setSearch(e.target.value)}/>
