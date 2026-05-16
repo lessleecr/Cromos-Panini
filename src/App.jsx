@@ -182,6 +182,13 @@ function AuthScreen({ onLogin }) {
         if (profileError) return setErr("Error perfil: " + profileError.message);
         const { error: cromosError } = await supabase.from("user_cromos").insert({ user_id:data.user.id, have:[], doubles:[] });
         if (cromosError) return setErr("Error cromos: " + cromosError.message);
+        // Enviar email de bienvenida desde el cliente
+        fetch("https://wldpquyktdnfqerzzpda.supabase.co/functions/v1/bienvenida", {
+          method:"POST",
+          headers:{ "Content-Type":"application/json",
+            "Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsZHBxdXlrdGRuZnFlcnp6cGRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5Mzg2MjgsImV4cCI6MjA5NDUxNDYyOH0.6F8Zwxq3zW-wVKRQCPJSwJjvty46A8IPmsti1DKF4mo" },
+          body: JSON.stringify({ record:{ email:f.email, raw_user_meta_data:{ name:f.name.trim() } } })
+        }).catch(()=>{}); // silencioso si falla
         onLogin(profile);
       }
     } finally { setLoading(false); }
