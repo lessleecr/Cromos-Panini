@@ -175,10 +175,13 @@ function AuthScreen({ onLogin }) {
         const { data: existing } = await supabase.from("profiles").select("id").eq("username", key).single();
         if (existing) return setErr("Ese usuario ya está registrado.");
         const { data, error } = await supabase.auth.signUp({ email:f.email, password:f.password });
-        if (error) return setErr(error.message);
-        const profile = { id:data.user.id, username:key, name:f.name.trim(), city:f.city.trim(), whatsapp:f.whatsapp.trim(), provincia:f.provincia, canton:f.canton.trim(), groups:[] };
-        await supabase.from("profiles").insert(profile);
-        await supabase.from("user_cromos").insert({ user_id:data.user.id, have:[], doubles:[] });
+        if (error) return setErr("Error auth: " + error.message);
+        if (!data?.user?.id) return setErr("No se pudo crear el usuario. Intentá con otro email.");
+        const profile = { id:data.user.id, username:key, name:f.name.trim(), city:f.city.trim(), whatsapp:f.whatsapp.trim(), provincia:f.provincia||"", canton:f.canton.trim(), groups:[] };
+        const { error: profileError } = await supabase.from("profiles").insert(profile);
+        if (profileError) return setErr("Error perfil: " + profileError.message);
+        const { error: cromosError } = await supabase.from("user_cromos").insert({ user_id:data.user.id, have:[], doubles:[] });
+        if (cromosError) return setErr("Error cromos: " + cromosError.message);
         onLogin(profile);
       }
     } finally { setLoading(false); }
