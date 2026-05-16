@@ -362,12 +362,16 @@ function CromosScreen({ user }) {
         background:G.card2,borderRadius:10,padding:"10px 14px",border:`1px solid ${G.border}`}}>
         <span style={{fontSize:12,color:G.muted,fontWeight:700}}>¿Cómo funciona?</span>
         <span style={{fontSize:12,color:G.muted}}>
-          <span style={{background:"rgba(76,200,122,.2)",border:"1px solid #4CC87A",borderRadius:5,padding:"2px 7px",color:G.accent3,fontWeight:700,marginRight:4}}>Toque</span>
-          Ya lo pegué
+          <span style={{background:"rgba(76,200,122,.2)",border:"1px solid #4CC87A",borderRadius:5,padding:"2px 7px",color:G.accent3,fontWeight:700,marginRight:4}}>1 toque</span>
+          Lo tengo
         </span>
         <span style={{fontSize:12,color:G.muted}}>
-          <span style={{background:"rgba(201,168,76,.2)",border:"1px solid #C9A84C",borderRadius:5,padding:"2px 7px",color:G.accent,fontWeight:700,marginRight:4}}>Toque largo</span>
+          <span style={{background:"rgba(201,168,76,.2)",border:"1px solid #C9A84C",borderRadius:5,padding:"2px 7px",color:G.accent,fontWeight:700,marginRight:4}}>2 toques</span>
           Tengo doble
+        </span>
+        <span style={{fontSize:12,color:G.muted}}>
+          <span style={{background:"rgba(200,76,76,.2)",border:"1px solid #C84C4C",borderRadius:5,padding:"2px 7px",color:"#E07070",fontWeight:700,marginRight:4}}>3 toques</span>
+          No lo tengo
         </span>
         <div style={{marginLeft:"auto",display:"flex",gap:6}}>
           {[["all","Todos"],["missing","Me faltan"],["have","Tengo"],["doubles","Dobles"]].map(([k,l])=>(
@@ -457,35 +461,40 @@ function CromosScreen({ user }) {
 
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(54px,1fr))",gap:5}}>
           {secCromos.map(c=>{
-            const got    = data.have.includes(c.id);
+            const got      = data.have.includes(c.id);
             const isDouble = data.doubles.includes(c.id);
 
-            if(filterMode==="missing"  && got)      return null;
-            if(filterMode==="have"     && !got)     return null;
-            if(filterMode==="doubles"  && !isDouble) return null;
+            if(filterMode==="missing" && got)       return null;
+            if(filterMode==="have"    && !got)      return null;
+            if(filterMode==="doubles" && !isDouble) return null;
 
             const cls = isDouble?"both":got?"have":"need";
 
-            let pressTimer = null;
-            const onPressStart = () => {
-              pressTimer = setTimeout(()=>{ toggleDouble(c.id); pressTimer=null; }, 500);
+            // Ciclo: sin marcar → tengo (1 toque) → tengo doble (2 toques) → no tengo (3 toques)
+            const handleClick = async () => {
+              const next = {...data};
+              if (!got && !isDouble) {
+                // Sin marcar → tengo
+                next.have = [...data.have, c.id];
+              } else if (got && !isDouble) {
+                // Tengo → tengo doble
+                next.doubles = [...data.doubles, c.id];
+              } else if (got && isDouble) {
+                // Tengo doble → no tengo
+                next.have    = data.have.filter(x=>x!==c.id);
+                next.doubles = data.doubles.filter(x=>x!==c.id);
+              }
+              await saveData(next);
             };
-            const onPressEnd = () => {
-              if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; toggleHave(c.id); }
-            };
-            const onPressCancel = () => {
-              if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; }
-            };
+
+            const state = isDouble ? "×2 Doble" : got ? "✓ Tengo" : "✗ Falta";
 
             return (
               <div key={c.id} className={`chip ${cls}`}
-                onMouseDown={onPressStart} onMouseUp={onPressEnd} onMouseLeave={onPressCancel}
-                onTouchStart={e=>{e.preventDefault();onPressStart();}}
-                onTouchEnd={e=>{e.preventDefault();onPressEnd();}}
-                onTouchCancel={onPressCancel}
+                onClick={handleClick}
                 onContextMenu={e=>e.preventDefault()}
-                style={{userSelect:"none",WebkitUserSelect:"none"}}
-                title={got?(isDouble?"Ya pegado + doble":"Ya pegado"):"Me falta"}>
+                style={{userSelect:"none",WebkitUserSelect:"none",cursor:"pointer"}}
+                title={`${c.id} — ${state}\n1 toque: Tengo | 2 toques: Doble | 3 toques: No tengo`}>
                 <span style={{fontSize:9,color:"currentColor",opacity:.55}}>{secInfo.id}</span>
                 <span style={{fontSize:13}}>{c.num}</span>
                 {isDouble&&<span style={{fontSize:8,lineHeight:1}}>×2</span>}
@@ -495,9 +504,9 @@ function CromosScreen({ user }) {
         </div>
 
         <div style={{marginTop:12,fontSize:11,color:G.muted,display:"flex",gap:14,flexWrap:"wrap"}}>
-          <span><span style={{color:"#E07070"}}>■</span> Me falta</span>
-          <span><span style={{color:G.accent3}}>■</span> Ya lo pegué</span>
-          <span><span style={{color:G.accent}}>■</span> Tengo doble</span>
+          <span><span style={{color:"#E07070"}}>■</span> No lo tengo (3 toques)</span>
+          <span><span style={{color:G.accent3}}>■</span> Lo tengo (1 toque)</span>
+          <span><span style={{color:G.accent}}>■</span> Tengo doble (2 toques)</span>
         </div>
       </div>
     </div>
