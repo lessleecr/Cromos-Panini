@@ -1252,39 +1252,65 @@ function MercadoScreen({ user, onChat }) {
 }
 
 // ─── CHAT ────────────────────────────────────────────────────────────────────
-function ChatScreen({ user }) {
+function ChatScreen({ user, openWith, onChatOpen }) {
   const [convs,    setConvs]   = useState([]);
-  const [active,   setActive]  = useState(null); // conversación activa
+  const [active,   setActive]  = useState(null);
   const [messages, setMessages]= useState([]);
   const [text,     setText]    = useState("");
   const [loading,  setLoading] = useState(true);
   const [sending,  setSending] = useState(false);
-  const [otherUser,setOther]   = useState(null);
-  const msgEnd = { current: null };
 
-  // Cargar conversaciones
   const loadConvs = async () => {
     const { data } = await supabase.from("conversations")
       .select("*")
       .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
       .order("last_at", { ascending:false });
     if (!data) return setLoading(false);
-    // Obtener perfiles del otro usuario
     const otherIds = data.map(c => c.user1_id === user.id ? c.user2_id : c.user1_id);
-    const { data:profs } = await supabase.from("profiles").select("*").in("id", otherIds);
+    const { data:profs } = otherIds.length > 0
+      ? await supabase.from("profiles").select("*").in("id", otherIds)
+      : { data:[] };
     const profMap = {};
     (profs||[]).forEach(p => { profMap[p.id] = p; });
     const enriched = data.map(c => ({
-      ...c,
-      other: profMap[c.user1_id === user.id ? c.user2_id : c.user1_id]
+      ...c, other: profMap[c.user1_id === user.id ? c.user2_id : c.user1_id]
     }));
     setConvs(enriched);
     setLoading(false);
+    return enriched;
   };
+
+  const startConv = async (otherId) => {
+    // Buscar conversación existente
+    const { data:allConvs } = await supabase.from("conversations")
+      .select("*")
+      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+    const existing = (allConvs||[]).find(c =>
+      (c.user1_id===user.id&&c.user2_id===otherId) ||
+      (c.user1_id===otherId&&c.user2_id===user.id)
+    );
+    const { data:prof } = await supabase.from("profiles").select("*").eq("id", otherId).single();
+    if (existing) {
+      setActive({ ...existing, other:prof });
+      return;
+    }
+    const newConv = { id:genId(), user1_id:user.id, user2_id:otherId, last_message:"", last_at:new Date().toISOString() };
+    await supabase.from("conversations").insert(newConv);
+    setActive({ ...newConv, other:prof });
+    loadConvs();
+  };
+
+  // Auto-abrir chat cuando viene de Mercado/Grupos
+  useEffect(() => {
+    if (openWith) {
+      startConv(openWith);
+      if (onChatOpen) onChatOpen();
+    }
+  }, [openWith]);
 
   useEffect(() => { loadConvs(); }, []);
 
-  // Cargar mensajes de conversación activa
+  // Mensajes en tiempo real
   useEffect(() => {
     if (!active) return;
     const load = async () => {
@@ -1292,14 +1318,12 @@ function ChatScreen({ user }) {
         .select("*").eq("conversation_id", active.id)
         .order("created_at", { ascending:true });
       setMessages(data||[]);
-      setOther(active.other);
       setTimeout(() => {
         const el = document.getElementById("msg-end");
         if (el) el.scrollIntoView({ behavior:"smooth" });
       }, 100);
     };
     load();
-    // Suscripción en tiempo real
     const sub = supabase.channel(`conv-${active.id}`)
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"messages",
         filter:`conversation_id=eq.${active.id}` },
@@ -1322,24 +1346,6 @@ function ChatScreen({ user }) {
     await supabase.from("messages").insert(msg);
     await supabase.from("conversations").update({ last_message:msg.text, last_at:msg.created_at }).eq("id", active.id);
     setSending(false);
-  };
-
-  const startConv = async (otherId) => {
-    // Buscar conversación existente
-    const { data:existing } = await supabase.from("conversations")
-      .select("*")
-      .or(`and(user1_id.eq.${user.id},user2_id.eq.${otherId}),and(user1_id.eq.${otherId},user2_id.eq.${user.id})`)
-      .single();
-    if (existing) {
-      const { data:prof } = await supabase.from("profiles").select("*").eq("id", otherId).single();
-      setActive({ ...existing, other:prof });
-      return;
-    }
-    const newConv = { id:genId(), user1_id:user.id, user2_id:otherId, last_message:"", last_at:new Date().toISOString() };
-    await supabase.from("conversations").insert(newConv);
-    const { data:prof } = await supabase.from("profiles").select("*").eq("id", otherId).single();
-    setActive({ ...newConv, other:prof });
-    loadConvs();
   };
 
   const Avatar = ({u, size=38}) => u?.avatar_url
@@ -1457,6 +1463,7 @@ export default function App() {
   const [user,    setUser]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab,     setTab]     = useState("cromos");
+  const [chatWith, setChatWith] = useState(null); // uid para abrir chat directo
 
   useEffect(()=>{
     supabase.auth.getSession().then(async ({data:{session}})=>{
@@ -1528,9 +1535,9 @@ export default function App() {
         </div>
         <div style={{maxWidth:960,margin:"0 auto",padding:"22px 16px"}}>
           {tab==="cromos"  && <CromosScreen user={user}/>}
-          {tab==="mercado" && <MercadoScreen user={user} onChat={uid=>{ setTab("chat"); }}/>}
-          {tab==="chat"    && <ChatScreen user={user}/>}
-          {tab==="grupos"  && <GroupsScreen user={user} onUserUpdate={updateUser} onChat={uid=>setTab("chat")}/>}
+          {tab==="mercado" && <MercadoScreen user={user} onChat={uid=>{ setChatWith(uid); setTab("chat"); }}/>}
+          {tab==="chat"    && <ChatScreen user={user} openWith={chatWith} onChatOpen={()=>setChatWith(null)}/>}
+          {tab==="grupos"  && <GroupsScreen user={user} onUserUpdate={updateUser} onChat={uid=>{ setChatWith(uid); setTab("chat"); }}/>}
           {tab==="perfil"  && <ProfileScreen user={user} onUserUpdate={updateUser} onLogout={logout}/>}
         </div>
       </div>
