@@ -1475,8 +1475,8 @@ function AdminScreen({ user }) {
   const flash = t => { setMsg(t); setTimeout(()=>setMsg(""),3000); };
 
   const load = async () => {
-    const { data:profs } = await supabase.from("profiles").select("*").order("created_at",{ascending:false});
-    const { data:crms }  = await supabase.from("user_cromos").select("*");
+    const { data:profs } = await supabase.rpc("get_all_profiles");
+    const { data:crms }  = await supabase.rpc("get_all_cromos");
     const map = {};
     (crms||[]).forEach(c=>{ map[c.user_id]={have:c.have||[],doubles:c.doubles||[]}; });
     setUsers(profs||[]);
