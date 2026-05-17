@@ -712,25 +712,33 @@ function GroupDetail({ group, user, onBack, onLeave }) {
       setMembers(profs||[]);
       const {data:crms} = await supabase.from("user_cromos").select("*").in("user_id", group.members);
       const map = {};
-      (crms||[]).forEach(c=>{ map[c.user_id]={need:c.need||[],have:c.have||[]}; });
+      (crms||[]).forEach(c=>{
+        map[c.user_id] = {
+          have:    c.have    || [],
+          doubles: c.doubles || c.need || [], // compatibilidad con datos viejos
+        };
+      });
       setCromos(map);
       setLoading(false);
     };
     load();
   },[group.id]);
 
-  const myData = cromos[user.id]||{have:[],doubles:[]};
-  const myMissing = ALL_CROMOS.filter(c=>!myData.have.includes(c.id)).map(c=>c.id);
-  const matches = members.filter(m=>m.id!==user.id).map(m=>{
-    const md = cromos[m.id]||{have:[],doubles:[]};
-    const mMissing = ALL_CROMOS.filter(c=>!md.have.includes(c.id)).map(c=>c.id);
-    const iGive    = (myData.doubles||[]).filter(c=>mMissing.includes(c));
-    const theyGive = (md.doubles||[]).filter(c=>myMissing.includes(c));
-    return {member:m,iGive,theyGive,score:iGive.length+theyGive.length};
-  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+  const myData    = cromos[user.id] || {have:[], doubles:[]};
+  const myMissing = ALL_CROMOS.filter(c => !myData.have.includes(c.id)).map(c => c.id);
 
-  const t=GTYPES.find(x=>x.id===group.type)||GTYPES[0];
-  const secOf = id=>{ const c=ALL_CROMOS.find(x=>x.id===id); return c?SECTIONS.find(s=>s.id===c.section):null; };
+  const matches = members.filter(m => m.id !== user.id).map(m => {
+    const md       = cromos[m.id] || {have:[], doubles:[]};
+    const mMissing = ALL_CROMOS.filter(c => !md.have.includes(c.id)).map(c => c.id);
+    // Yo le doy: mis dobles que él necesita
+    const iGive    = myData.doubles.filter(id => mMissing.includes(id));
+    // Él me da: sus dobles que yo necesito
+    const theyGive = md.doubles.filter(id => myMissing.includes(id));
+    return { member:m, iGive, theyGive, score:iGive.length + theyGive.length };
+  }).filter(x => x.score > 0).sort((a,b) => b.score - a.score);
+
+  const t = GTYPES.find(x => x.id === group.type) || GTYPES[0];
+  const secOf = id => { const c = ALL_CROMOS.find(x => x.id === id); return c ? SECTIONS.find(s => s.id === c.section) : null; };
 
   return (
     <div className="ani">
@@ -766,30 +774,45 @@ function GroupDetail({ group, user, onBack, onLeave }) {
         matches.length===0 ? (
           <div className="card" style={{textAlign:"center",padding:40}}>
             <div style={{fontSize:40,marginBottom:10}}>🔍</div>
-            <div style={{color:G.muted,fontSize:14}}>No hay intercambios posibles aún.<br/>Los miembros deben marcar sus cromos.</div>
+            <div style={{color:G.muted,fontSize:14,lineHeight:1.7}}>
+              No hay intercambios posibles aún.<br/>
+              Para que aparezcan intercambios, los miembros deben:<br/>
+              <span style={{color:G.accent3}}>✓ Marcar los cromos que ya pegaron</span><br/>
+              <span style={{color:G.accent}}>× 2 toques para marcar los que tienen dobles</span>
+            </div>
           </div>
         ) : (
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {matches.map(({member,iGive,theyGive})=>(
               <div key={member.id} className="match-row">
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
-                  <div>
-                    <span style={{fontWeight:800,fontSize:16}}>{member.name}</span>
-                    <span style={{color:G.muted,fontSize:13,marginLeft:8}}>@{member.username}</span>
-                    {member.city && <span className="badge b-blue" style={{marginLeft:8}}>📍 {member.city}</span>}
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    {member.avatar_url
+                      ? <img src={member.avatar_url} style={{width:38,height:38,borderRadius:"50%",objectFit:"cover",border:`2px solid ${G.accent}`}}/>
+                      : <div style={{width:38,height:38,borderRadius:"50%",background:G.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>👤</div>}
+                    <div>
+                      <div style={{fontWeight:800,fontSize:15}}>{member.name}
+                        {group.admin_id===member.id && <span className="badge b-gold" style={{marginLeft:6,fontSize:10}}>ADMIN</span>}
+                      </div>
+                      <div style={{fontSize:12,color:G.muted}}>
+                        @{member.username}
+                        {member.provincia && <span className="badge b-blue" style={{marginLeft:6,fontSize:10}}>📍 {member.provincia}{member.canton?`, ${member.canton}`:""}</span>}
+                      </div>
+                    </div>
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <span className="badge b-gold">🔄 {iGive.length+theyGive.length}</span>
                     {member.whatsapp && (
                       <a href={`https://wa.me/${member.whatsapp.replace(/\D/g,"")}?text=${encodeURIComponent(
-                        `¡Hola ${member.name}! Vi en Cromos Panini que podemos intercambiar:\n\n` +
-                        (iGive.length>0 ? `✅ Yo te doy: ${iGive.slice(0,5).join(", ")}${iGive.length>5?` y ${iGive.length-5} más`:""}\n` : "") +
-                        (theyGive.length>0 ? `🔄 Yo necesito: ${theyGive.slice(0,5).join(", ")}${theyGive.length>5?` y ${theyGive.length-5} más`:""}` : "")
+                        `¡Hola ${member.name}! Vi en Cromos Panini 2026 que podemos intercambiar:\n\n`+
+                        (iGive.length>0?`✅ Yo te doy: ${iGive.slice(0,5).join(", ")}${iGive.length>5?` y ${iGive.length-5} más`:""}\n`:"")+
+                        (theyGive.length>0?`🔄 Yo necesito: ${theyGive.slice(0,5).join(", ")}${theyGive.length>5?` y ${theyGive.length-5} más`:""}`:"")+
+                        `\n\n¿Hacemos un intercambio?`
                       )}`}
                         target="_blank" rel="noopener noreferrer"
                         style={{background:"#25D366",color:"#fff",padding:"5px 12px",borderRadius:8,
                           fontSize:12,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:5}}>
-                        <span>💬</span> WhatsApp
+                        💬 WhatsApp
                       </a>
                     )}
                   </div>
@@ -798,15 +821,15 @@ function GroupDetail({ group, user, onBack, onLeave }) {
                   <div className="card2" style={{borderColor:"rgba(76,200,122,.2)"}}>
                     <div style={{fontSize:11,color:G.accent3,fontWeight:700,marginBottom:7}}>YO LE DOY ({iGive.length})</div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
-                      {iGive.slice(0,10).map(id=>{ const s=secOf(id); return <span key={id} className="badge b-green" style={{fontSize:10}}>{s?.flag} {id}</span>; })}
-                      {iGive.length>10&&<span style={{fontSize:11,color:G.muted}}>+{iGive.length-10}</span>}
+                      {iGive.slice(0,12).map(id=>{ const s=secOf(id); return <span key={id} className="badge b-green" style={{fontSize:10}}>{s?.flag} {id}</span>; })}
+                      {iGive.length>12&&<span style={{fontSize:11,color:G.muted}}>+{iGive.length-12}</span>}
                     </div>
                   </div>
                   <div className="card2" style={{borderColor:"rgba(200,76,76,.2)"}}>
                     <div style={{fontSize:11,color:"#E07070",fontWeight:700,marginBottom:7}}>ÉL/ELLA ME DA ({theyGive.length})</div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
-                      {theyGive.slice(0,10).map(id=>{ const s=secOf(id); return <span key={id} className="badge b-red" style={{fontSize:10}}>{s?.flag} {id}</span>; })}
-                      {theyGive.length>10&&<span style={{fontSize:11,color:G.muted}}>+{theyGive.length-10}</span>}
+                      {theyGive.slice(0,12).map(id=>{ const s=secOf(id); return <span key={id} className="badge b-red" style={{fontSize:10}}>{s?.flag} {id}</span>; })}
+                      {theyGive.length>12&&<span style={{fontSize:11,color:G.muted}}>+{theyGive.length-12}</span>}
                     </div>
                   </div>
                 </div>
@@ -817,17 +840,33 @@ function GroupDetail({ group, user, onBack, onLeave }) {
       ) : (
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {members.map(m=>{
-            const md=cromos[m.id]||{need:[],have:[]};
+            const md = cromos[m.id]||{have:[],doubles:[]};
+            const mHave    = (md.have||[]).length;
+            const mDoubles = (md.doubles||[]).length;
+            const mMissing = ALL_CROMOS.length - mHave;
+            const mPct     = Math.round((mHave/ALL_CROMOS.length)*100);
             return (
-              <div key={m.id} className="card" style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                <div>
-                  <span style={{fontWeight:800}}>{m.name}</span>
-                  {group.admin_id===m.id && <span className="badge b-gold" style={{marginLeft:8,fontSize:10}}>ADMIN</span>}
-                  <div style={{color:G.muted,fontSize:12}}>@{m.username}{m.city?` · 📍 ${m.city}`:""}</div>
+              <div key={m.id} className="card" style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  {m.avatar_url
+                    ? <img src={m.avatar_url} style={{width:38,height:38,borderRadius:"50%",objectFit:"cover",border:`2px solid ${G.border}`}}/>
+                    : <div style={{width:38,height:38,borderRadius:"50%",background:G.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>👤</div>}
+                  <div>
+                    <div style={{fontWeight:800}}>
+                      {m.name}
+                      {group.admin_id===m.id && <span className="badge b-gold" style={{marginLeft:6,fontSize:10}}>ADMIN</span>}
+                      {m.id===user.id && <span className="badge" style={{marginLeft:6,fontSize:10,background:"rgba(76,154,200,.2)",color:G.accent2,border:`1px solid ${G.accent2}44`}}>YO</span>}
+                    </div>
+                    <div style={{color:G.muted,fontSize:12}}>
+                      @{m.username}
+                      {m.provincia && ` · 📍 ${m.provincia}${m.canton?`, ${m.canton}`:""}`}
+                    </div>
+                  </div>
                 </div>
-                <div style={{display:"flex",gap:6}}>
-                  <span className="badge b-red">{ALL_CROMOS.length-(md.have||[]).length} faltan</span>
-                  <span className="badge b-green">{(md.doubles||[]).length} dobles</span>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                  <span className="badge b-green">{mHave} pegados ({mPct}%)</span>
+                  <span className="badge b-red">{mMissing} faltan</span>
+                  {mDoubles>0 && <span className="badge b-gold">{mDoubles} dobles</span>}
                 </div>
               </div>
             );
