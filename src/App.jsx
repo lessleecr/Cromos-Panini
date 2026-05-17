@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
-// ─── DATOS DEL ÁLBUM FIFA WORLD CUP 2026 ─────────────────────────────────────
+// ─── DATOS DEL ÁLBUM LA BOLSA DE CROMOS ─────────────────────────────────────
 const SECTIONS_RAW = [
   { id:"FWC",  name:"FIFA World Cup",   flag:"🏆", color:"#FFD700", count:20, start:0, special:true },
   { id:"MEX",  name:"México",           flag:"🇲🇽", color:"#006847", count:20 },
@@ -132,7 +132,7 @@ html,body{background:${G.bg};color:${G.text};font-family:'Nunito',sans-serif;min
 `;
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
-const TERMS = `TÉRMINOS Y CONDICIONES DE USO — CROMOS PANINI 2026
+const TERMS = `TÉRMINOS Y CONDICIONES DE USO — LA BOLSA DE CROMOS
 
 Esta plataforma es un servicio gratuito para facilitar el intercambio de cromos entre usuarios. Al registrarte aceptás lo siguiente:
 
@@ -205,9 +205,9 @@ function AuthScreen({ onLogin }) {
       <div className="ani" style={{width:"100%",maxWidth:420}}>
         <div style={{textAlign:"center",marginBottom:30}}>
           <div style={{fontSize:52,marginBottom:6}}>⚽</div>
-          <div className="h1" style={{fontSize:32,color:G.accent,letterSpacing:4}}>FIFA WORLD CUP 2026</div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:17,color:G.accent2,letterSpacing:6,marginTop:2}}>CROMOS PANINI</div>
-          <div style={{color:G.muted,fontSize:12,marginTop:8}}>Intercambiá cromos con tu comunidad</div>
+          <div className="h1" style={{fontSize:32,color:G.accent,letterSpacing:4}}>LA BOLSA DE CROMOS</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:17,color:G.accent2,letterSpacing:6,marginTop:2}}>FIFA WORLD CUP 2026</div>
+          <div style={{color:G.muted,fontSize:12,marginTop:8}}>Intercambiá postales con tu comunidad</div>
         </div>
         <div className="card">
           <div style={{display:"flex",background:G.bg,borderRadius:9,padding:4,marginBottom:20}}>
@@ -510,7 +510,7 @@ function CromosScreen({ user }) {
     ctx.fillStyle="#C9A84C"; ctx.fillRect(0,curY,totalW,4);
     ctx.fillStyle="#1a2d1a"; ctx.fillRect(0,curY+4,totalW,FOOTER_H);
     ctx.fillStyle="#C9A84C"; ctx.font="bold 16px Arial"; ctx.textAlign="center";
-    ctx.fillText("⚽  cromos-panini.vercel.app  ·  ¡Encontrá con quién intercambiar cerca tuyo!  ⚽",totalW/2,curY+4+FOOTER_H/2+6);
+    ctx.fillText("⚽  labolsadecromos.vercel.app  ·  ¡Encontrá con quién intercambiar cerca tuyo!  ⚽",totalW/2,curY+4+FOOTER_H/2+6);
 
     // Descargar JPG
     canvas.toBlob(blob=>{
@@ -1009,7 +1009,7 @@ function GroupDetail({ group, user, onBack, onLeave, onChat }) {
                     </button>
                     {member.whatsapp && (
                       <a href={`https://wa.me/${member.whatsapp.replace(/\D/g,"")}?text=${encodeURIComponent(
-                        `¡Hola ${member.name}! Vi en Cromos Panini 2026 que podemos intercambiar:\n\n`+
+                        `¡Hola ${member.name}! Vi en La Bolsa de Cromos que podemos intercambiar:\n\n`+
                         (iGive.length>0?`✅ Yo te doy: ${iGive.slice(0,5).join(", ")}${iGive.length>5?` y ${iGive.length-5} más`:""}\n`:"")+
                         (theyGive.length>0?`🔄 Yo necesito: ${theyGive.slice(0,5).join(", ")}${theyGive.length>5?` y ${theyGive.length-5} más`:""}`:"")+
                         `\n\n¿Hacemos un intercambio?`
@@ -1363,7 +1363,7 @@ function MercadoScreen({ user, onChat }) {
                     </button>
                     {u.whatsapp && (
                       <a href={`https://wa.me/${u.whatsapp.replace(/\D/g,"")}?text=${encodeURIComponent(
-                        `¡Hola ${u.name}! Te encontré en Cromos Panini 2026.\n\n`+
+                        `¡Hola ${u.name}! Te encontré en La Bolsa de Cromos.\n\n`+
                         (iCanGive.length>0?`✅ Yo te puedo dar: ${iCanGive.slice(0,5).join(", ")}${iCanGive.length>5?` y ${iCanGive.length-5} más`:""}\n`:"")+
                         (theyGive.length>0?`🔄 Yo necesito: ${theyGive.slice(0,5).join(", ")}${theyGive.length>5?` y ${theyGive.length-5} más`:""}`:"")+
                         `\n\n¿Hacemos un intercambio?`
@@ -1912,8 +1912,8 @@ export default function App() {
               <div style={{display:"flex",alignItems:"center",gap:10}}>
                 <span style={{fontSize:20}}>⚽</span>
                 <div>
-                  <div className="h1" style={{fontSize:15,color:G.accent,letterSpacing:3,lineHeight:1}}>FIFA WORLD CUP 2026</div>
-                  <div style={{fontSize:10,color:G.muted,letterSpacing:2,fontWeight:700}}>CROMOS PANINI</div>
+                  <div className="h1" style={{fontSize:15,color:G.accent,letterSpacing:3,lineHeight:1}}>LA BOLSA DE CROMOS</div>
+                  <div style={{fontSize:10,color:G.muted,letterSpacing:2,fontWeight:700}}>FIFA WORLD CUP 2026</div>
                 </div>
               </div>
               <div style={{textAlign:"right"}}>
