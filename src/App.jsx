@@ -1101,7 +1101,7 @@ function ProvinciaCantonSelect({ provincia, canton, onProvincia, onCanton, inclu
   );
 }
 
-function MercadoScreen({ user }) {
+function MercadoScreen({ user, onChat }) {
   const [users,    setUsers]    = useState([]);
   const [cromos,   setCromos]   = useState({});
   const [loading,  setLoading]  = useState(true);
@@ -1213,6 +1213,9 @@ function MercadoScreen({ user }) {
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <span className="badge b-gold">{relevant.length} cromos</span>
+                    <button className="btn btn-blue btn-sm" onClick={()=>onChat(u.id)}>
+                      💬 Chat
+                    </button>
                     {u.whatsapp && (
                       <a href={`https://wa.me/${u.whatsapp.replace(/\D/g,"")}?text=${encodeURIComponent(
                         `¡Hola ${u.name}! Te encontré en Cromos Panini 2026.\n\n`+
@@ -1239,6 +1242,207 @@ function MercadoScreen({ user }) {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CHAT ────────────────────────────────────────────────────────────────────
+function ChatScreen({ user }) {
+  const [convs,    setConvs]   = useState([]);
+  const [active,   setActive]  = useState(null); // conversación activa
+  const [messages, setMessages]= useState([]);
+  const [text,     setText]    = useState("");
+  const [loading,  setLoading] = useState(true);
+  const [sending,  setSending] = useState(false);
+  const [otherUser,setOther]   = useState(null);
+  const msgEnd = { current: null };
+
+  // Cargar conversaciones
+  const loadConvs = async () => {
+    const { data } = await supabase.from("conversations")
+      .select("*")
+      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+      .order("last_at", { ascending:false });
+    if (!data) return setLoading(false);
+    // Obtener perfiles del otro usuario
+    const otherIds = data.map(c => c.user1_id === user.id ? c.user2_id : c.user1_id);
+    const { data:profs } = await supabase.from("profiles").select("*").in("id", otherIds);
+    const profMap = {};
+    (profs||[]).forEach(p => { profMap[p.id] = p; });
+    const enriched = data.map(c => ({
+      ...c,
+      other: profMap[c.user1_id === user.id ? c.user2_id : c.user1_id]
+    }));
+    setConvs(enriched);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadConvs(); }, []);
+
+  // Cargar mensajes de conversación activa
+  useEffect(() => {
+    if (!active) return;
+    const load = async () => {
+      const { data } = await supabase.from("messages")
+        .select("*").eq("conversation_id", active.id)
+        .order("created_at", { ascending:true });
+      setMessages(data||[]);
+      setOther(active.other);
+      setTimeout(() => {
+        const el = document.getElementById("msg-end");
+        if (el) el.scrollIntoView({ behavior:"smooth" });
+      }, 100);
+    };
+    load();
+    // Suscripción en tiempo real
+    const sub = supabase.channel(`conv-${active.id}`)
+      .on("postgres_changes", { event:"INSERT", schema:"public", table:"messages",
+        filter:`conversation_id=eq.${active.id}` },
+        payload => {
+          setMessages(prev => [...prev, payload.new]);
+          setTimeout(() => {
+            const el = document.getElementById("msg-end");
+            if (el) el.scrollIntoView({ behavior:"smooth" });
+          }, 50);
+        })
+      .subscribe();
+    return () => supabase.removeChannel(sub);
+  }, [active?.id]);
+
+  const sendMessage = async () => {
+    if (!text.trim() || !active || sending) return;
+    setSending(true);
+    const msg = { id:genId(), conversation_id:active.id, sender_id:user.id, text:text.trim(), created_at:new Date().toISOString() };
+    setText("");
+    await supabase.from("messages").insert(msg);
+    await supabase.from("conversations").update({ last_message:msg.text, last_at:msg.created_at }).eq("id", active.id);
+    setSending(false);
+  };
+
+  const startConv = async (otherId) => {
+    // Buscar conversación existente
+    const { data:existing } = await supabase.from("conversations")
+      .select("*")
+      .or(`and(user1_id.eq.${user.id},user2_id.eq.${otherId}),and(user1_id.eq.${otherId},user2_id.eq.${user.id})`)
+      .single();
+    if (existing) {
+      const { data:prof } = await supabase.from("profiles").select("*").eq("id", otherId).single();
+      setActive({ ...existing, other:prof });
+      return;
+    }
+    const newConv = { id:genId(), user1_id:user.id, user2_id:otherId, last_message:"", last_at:new Date().toISOString() };
+    await supabase.from("conversations").insert(newConv);
+    const { data:prof } = await supabase.from("profiles").select("*").eq("id", otherId).single();
+    setActive({ ...newConv, other:prof });
+    loadConvs();
+  };
+
+  const Avatar = ({u, size=38}) => u?.avatar_url
+    ? <img src={u.avatar_url} style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",border:`2px solid ${G.border}`,flexShrink:0}}/>
+    : <div style={{width:size,height:size,borderRadius:"50%",background:G.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.4,flexShrink:0}}>👤</div>;
+
+  // Vista de conversación activa
+  if (active) return (
+    <div className="ani" style={{display:"flex",flexDirection:"column",height:"calc(100vh - 140px)"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,paddingBottom:14,borderBottom:`1px solid ${G.border}`}}>
+        <button className="btn btn-ghost btn-sm" onClick={()=>setActive(null)}>← Volver</button>
+        <Avatar u={active.other} size={40}/>
+        <div>
+          <div style={{fontWeight:800,fontSize:16}}>{active.other?.name}</div>
+          <div style={{fontSize:12,color:G.muted}}>@{active.other?.username}
+            {active.other?.provincia && ` · 📍 ${active.other.provincia}${active.other.canton?`, ${active.other.canton}`:""}`}
+          </div>
+        </div>
+        {active.other?.whatsapp && (
+          <a href={`https://wa.me/${active.other.whatsapp.replace(/\D/g,"")}`}
+            target="_blank" rel="noopener noreferrer" className="btn btn-sm"
+            style={{marginLeft:"auto",background:"#25D366",color:"#fff",textDecoration:"none"}}>
+            💬 WhatsApp
+          </a>
+        )}
+      </div>
+
+      {/* Mensajes */}
+      <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:8,paddingBottom:8}}>
+        {messages.length===0 && (
+          <div style={{textAlign:"center",color:G.muted,fontSize:13,padding:40}}>
+            Aún no hay mensajes. ¡Empezá la conversación! 👋
+          </div>
+        )}
+        {messages.map(m => {
+          const mine = m.sender_id === user.id;
+          const time = new Date(m.created_at).toLocaleTimeString("es-CR",{hour:"2-digit",minute:"2-digit"});
+          return (
+            <div key={m.id} style={{display:"flex",justifyContent:mine?"flex-end":"flex-start",gap:8,alignItems:"flex-end"}}>
+              {!mine && <Avatar u={active.other} size={28}/>}
+              <div style={{maxWidth:"70%"}}>
+                <div style={{
+                  background: mine ? G.accent : G.card2,
+                  color: mine ? "#08100a" : G.text,
+                  padding:"10px 14px",borderRadius:mine?"14px 14px 4px 14px":"14px 14px 14px 4px",
+                  fontSize:14,lineHeight:1.5,wordBreak:"break-word",
+                  border:`1px solid ${mine?"transparent":G.border}`
+                }}>
+                  {m.text}
+                </div>
+                <div style={{fontSize:10,color:G.muted,marginTop:3,textAlign:mine?"right":"left"}}>{time}</div>
+              </div>
+              {mine && <Avatar u={user} size={28}/>}
+            </div>
+          );
+        })}
+        <div id="msg-end"/>
+      </div>
+
+      {/* Input */}
+      <div style={{display:"flex",gap:8,paddingTop:12,borderTop:`1px solid ${G.border}`}}>
+        <input className="input" placeholder="Escribí un mensaje..." value={text}
+          onChange={e=>setText(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
+          style={{flex:1}}/>
+        <button className="btn btn-gold" onClick={sendMessage} disabled={!text.trim()||sending}
+          style={{padding:"10px 16px",opacity:!text.trim()||sending?.6:1}}>
+          {sending?"...":"Enviar ➤"}
+        </button>
+      </div>
+    </div>
+  );
+
+  // Lista de conversaciones
+  return (
+    <div className="ani">
+      <div className="h1" style={{fontSize:24,letterSpacing:2,marginBottom:18}}>💬 MENSAJES</div>
+
+      {loading ? (
+        <div style={{display:"flex",justifyContent:"center",padding:40}}><div className="spinner"/></div>
+      ) : convs.length===0 ? (
+        <div className="card" style={{textAlign:"center",padding:44}}>
+          <div style={{fontSize:44,marginBottom:12}}>💬</div>
+          <div style={{color:G.muted,fontSize:14,marginBottom:16}}>
+            Aún no tenés conversaciones.<br/>
+            Iniciá un chat desde el <strong style={{color:G.accent2}}>Mercado</strong> o los <strong style={{color:G.accent}}>Grupos</strong>.
+          </div>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {convs.map(c=>(
+            <div key={c.id} className="card" style={{cursor:"pointer",display:"flex",alignItems:"center",gap:12}}
+              onClick={()=>setActive(c)}>
+              <Avatar u={c.other} size={46}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:800,fontSize:15}}>{c.other?.name}</div>
+                <div style={{fontSize:12,color:G.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {c.last_message || "Sin mensajes aún"}
+                </div>
+              </div>
+              <div style={{fontSize:11,color:G.muted,flexShrink:0}}>
+                {c.last_at ? new Date(c.last_at).toLocaleDateString("es-CR",{day:"2-digit",month:"2-digit"}) : ""}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -1286,6 +1490,7 @@ export default function App() {
   const TABS = [
     {id:"cromos", label:"⚽ Mi Álbum"},
     {id:"mercado",label:"🔄 Mercado"},
+    {id:"chat",   label:"💬 Mensajes"},
     {id:"grupos", label:"🏘️ Grupos"},
     {id:"perfil", label:"👤 Perfil"},
   ];
@@ -1320,7 +1525,8 @@ export default function App() {
         </div>
         <div style={{maxWidth:960,margin:"0 auto",padding:"22px 16px"}}>
           {tab==="cromos"  && <CromosScreen user={user}/>}
-          {tab==="mercado" && <MercadoScreen user={user}/>}
+          {tab==="mercado" && <MercadoScreen user={user} onChat={uid=>{ setTab("chat"); }}/>}
+          {tab==="chat"    && <ChatScreen user={user}/>}
           {tab==="grupos"  && <GroupsScreen user={user} onUserUpdate={updateUser}/>}
           {tab==="perfil"  && <ProfileScreen user={user} onUserUpdate={updateUser} onLogout={logout}/>}
         </div>
