@@ -772,7 +772,7 @@ function GroupDetail({ group, user, onBack, onLeave, onChat }) {
 
   useEffect(()=>{
     const load = async () => {
-      const {data:profs} = await supabase.from("profiles").select("*").in("id", group.members);
+      const {data:profs} = await supabase.from("profiles").select("*").in("id", group.members).eq("blocked", false);
       setMembers(profs||[]);
       const {data:crms} = await supabase.from("user_cromos").select("*").in("user_id", group.members);
       const map = {};
@@ -1120,7 +1120,7 @@ function MercadoScreen({ user, onChat }) {
 
   useEffect(()=>{
     const load = async () => {
-      const {data:profs} = await supabase.from("profiles").select("*").neq("id", user.id);
+      const {data:profs} = await supabase.from("profiles").select("*").neq("id", user.id).eq("blocked", false);
       const {data:crms}  = await supabase.from("user_cromos").select("*");
       const map = {};
       (crms||[]).forEach(c=>{ map[c.user_id]={have:c.have||[],doubles:c.doubles||[]}; });
