@@ -352,8 +352,188 @@ function CromosScreen({ user }) {
   const descargar = () => {
     const missing = ALL_CROMOS.filter(c => !data.have.includes(c.id));
     const doubles = ALL_CROMOS.filter(c => data.doubles.includes(c.id));
-    const missingBySec = SECTIONS.map(s=>({sec:s,items:missing.filter(c=>c.section===s.id)})).filter(x=>x.items.length>0);
-    const doublesBySec = SECTIONS.map(s=>({sec:s,items:doubles.filter(c=>c.section===s.id)})).filter(x=>x.items.length>0);
+
+    const THEMES = [
+      { name:"Oro",      bg:"#0a0800", header:"#C9A84C", headerText:"#0a0800", secBg:"#1a1200", secText:"#FFD700", needBg:"#3d2800", needText:"#FFD700", haveBg:"#1a3300", haveText:"#4CC87A", dblBg:"#002233", dblText:"#00BFFF" },
+      { name:"Azul",     bg:"#00051a", header:"#1a4dff", headerText:"#ffffff", secBg:"#000d33", secText:"#7aadff", needBg:"#1a0033", needText:"#cc88ff", haveBg:"#001a33", haveText:"#00ffcc", dblBg:"#001a00", dblText:"#4CC87A" },
+      { name:"Verde",    bg:"#001a00", header:"#006600", headerText:"#ffffff", secBg:"#002200", secText:"#66ff66", needBg:"#330000", needText:"#ff6666", haveBg:"#003300", haveText:"#00ff44", dblBg:"#001a33", dblText:"#44aaff" },
+      { name:"Rojo",     bg:"#1a0000", header:"#cc0000", headerText:"#ffffff", secBg:"#2a0000", secText:"#ff6666", needBg:"#330a00", needText:"#ffaa44", haveBg:"#002200", haveText:"#44ff88", dblBg:"#000033", dblText:"#88aaff" },
+      { name:"Galaxia",  bg:"#0d0020", header:"#6600cc", headerText:"#ffffff", secBg:"#1a0033", secText:"#cc88ff", needBg:"#1a1a00", needText:"#ffff44", haveBg:"#001a1a", haveText:"#44ffff", dblBg:"#1a0000", dblText:"#ff6666" },
+      { name:"Atardecer",bg:"#1a0800", header:"#cc5500", headerText:"#ffffff", secBg:"#2a1000", secText:"#ffaa44", needBg:"#001a1a", needText:"#44ffff", haveBg:"#1a2200", haveText:"#88ff44", dblBg:"#1a001a", dblText:"#ff88ff" },
+      { name:"Cian",     bg:"#001a1a", header:"#007a7a", headerText:"#ffffff", secBg:"#002222", secText:"#00ffff", needBg:"#1a0000", needText:"#ff6666", haveBg:"#001a00", haveText:"#66ff88", dblBg:"#1a1a00", dblText:"#ffff44" },
+      { name:"Rosa",     bg:"#1a0012", header:"#cc0066", headerText:"#ffffff", secBg:"#2a0020", secText:"#ff66cc", needBg:"#001a00", needText:"#66ff88", haveBg:"#001a1a", haveText:"#44ffff", dblBg:"#1a1a00", dblText:"#ffff44" },
+      { name:"Plata",    bg:"#0a0f1a", header:"#334466", headerText:"#ffffff", secBg:"#111827", secText:"#aabbcc", needBg:"#1a0000", needText:"#ff8888", haveBg:"#001a00", haveText:"#88ff88", dblBg:"#001a1a", dblText:"#88ffff" },
+      { name:"Dorado",   bg:"#0f0a00", header:"#aa7700", headerText:"#ffffff", secBg:"#1a1200", secText:"#ffcc44", needBg:"#1a0000", needText:"#ff6666", haveBg:"#001a00", haveText:"#66ff88", dblBg:"#001a2a", dblText:"#44aaff" },
+    ];
+
+    const T = THEMES[Math.floor(Math.random()*THEMES.length)];
+    const W = 1200;
+    const COL_W = 110, COL_H = 32, GAP = 4, MARGIN = 30;
+    const COLS = Math.floor((W - MARGIN*2 + GAP) / (COL_W + GAP)); // ~10 cols
+
+    function roundRect(ctx,x,y,w,h,r=6){
+      ctx.beginPath();
+      ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+      ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+      ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+      ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+      ctx.closePath();
+    }
+
+    // Calcular altura: una tabla por sección
+    // Para cada sección: header fila (40) + filas de cromos
+    let calcH = 220; // título principal + stats
+    SECTIONS.forEach(sec => {
+      const items = ALL_CROMOS.filter(c=>c.section===sec.id);
+      const rows  = Math.ceil(items.length/COLS);
+      calcH += 44 + rows*(COL_H+GAP) + 16; // header sección + chips + gap
+    });
+    calcH += 100; // leyenda + footer
+
+    const H = calcH;
+    const canvas = document.createElement("canvas");
+    canvas.width=W; canvas.height=H;
+    const ctx = canvas.getContext("2d");
+
+    // Fondo
+    ctx.fillStyle=T.bg; ctx.fillRect(0,0,W,H);
+
+    // Patrón sutil
+    ctx.strokeStyle="#ffffff08"; ctx.lineWidth=1;
+    for(let x=0;x<W;x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for(let y=0;y<H;y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+    // ── Header principal ──
+    ctx.fillStyle=T.header; ctx.fillRect(0,0,W,160);
+
+    // Logo ⚽
+    ctx.font="52px serif"; ctx.textAlign="left";
+    ctx.fillText("⚽",MARGIN,100);
+
+    // Título
+    ctx.fillStyle=T.headerText;
+    ctx.font="bold 48px 'Arial Black',Arial"; ctx.textAlign="left";
+    ctx.fillText("PLANILLA DE CONTROL",MARGIN+70,68);
+    ctx.font="bold 28px Arial";
+    ctx.fillText("MUNDIAL 2026 · FIFA WORLD CUP 2026",MARGIN+70,108);
+    ctx.font="22px Arial";
+    ctx.fillStyle=T.headerText+"cc";
+    ctx.fillText(`${user.name}${user.provincia?` · 📍 ${user.provincia}${user.canton?`, ${user.canton}`:""}`:""} · ${new Date().toLocaleDateString("es-CR")}`,MARGIN+70,140);
+
+    // Stats strip
+    ctx.fillStyle="#ffffff15"; ctx.fillRect(0,160,W,56);
+    const statsData=[
+      {l:"TOTAL ÁLBUM", v:TOTAL,         c:"#aaaaaa"},
+      {l:"TENGO",       v:totalHave,      c:"#4CC87A"},
+      {l:"ME FALTAN",   v:totalMissing,   c:"#ff6666"},
+      {l:"DOBLES",      v:doubles.length, c:"#44aaff"},
+      {l:"PROGRESO",    v:`${totalPct}%`, c:T.header},
+    ];
+    const sw=W/statsData.length;
+    statsData.forEach((s,i)=>{
+      const x=i*sw;
+      if(i>0){ ctx.strokeStyle="#ffffff22"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,162); ctx.lineTo(x,214); ctx.stroke(); }
+      ctx.fillStyle=s.c; ctx.font="bold 28px Arial"; ctx.textAlign="center";
+      ctx.fillText(s.v,x+sw/2,194);
+      ctx.fillStyle="#ffffff88"; ctx.font="bold 13px Arial";
+      ctx.fillText(s.l,x+sw/2,212);
+    });
+
+    let curY=220;
+
+    // ── Secciones ──
+    SECTIONS.forEach(sec=>{
+      const items=ALL_CROMOS.filter(c=>c.section===sec.id);
+
+      // Header sección
+      ctx.fillStyle=T.secBg; ctx.fillRect(0,curY,W,40);
+      ctx.strokeStyle=T.header+"66"; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(0,curY); ctx.lineTo(W,curY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,curY+40); ctx.lineTo(W,curY+40); ctx.stroke();
+
+      ctx.fillStyle=T.secText; ctx.font="bold 22px Arial"; ctx.textAlign="left";
+      ctx.fillText(`${sec.flag}  ${sec.name}`,MARGIN,curY+27);
+
+      // Contadores
+      const secHave    = items.filter(c=>data.have.includes(c.id)).length;
+      const secMissing = items.filter(c=>!data.have.includes(c.id)).length;
+      const secDoubles = items.filter(c=>data.doubles.includes(c.id)).length;
+      ctx.font="16px Arial"; ctx.textAlign="right";
+      ctx.fillStyle="#4CC87A"; ctx.fillText(`✓ ${secHave}`,W-MARGIN-160,curY+27);
+      ctx.fillStyle="#ff6666"; ctx.fillText(`✗ ${secMissing}`,W-MARGIN-80,curY+27);
+      ctx.fillStyle="#44aaff"; ctx.fillText(`×2 ${secDoubles}`,W-MARGIN,curY+27);
+
+      curY+=44;
+
+      // Chips de cromos
+      let cx=MARGIN, cy=curY;
+      items.forEach((c,i)=>{
+        if(i>0&&i%COLS===0){ cx=MARGIN; cy+=COL_H+GAP; }
+
+        const have   = data.have.includes(c.id);
+        const dbl    = data.doubles.includes(c.id);
+        const missed = !have;
+
+        let bg, tc, stroke;
+        if(dbl)    { bg=T.dblBg;  tc=T.dblText;  stroke=T.dblText+"88"; }
+        else if(have) { bg=T.haveBg; tc=T.haveText; stroke=T.haveText+"88"; }
+        else        { bg=T.needBg; tc=T.needText; stroke=T.needText+"66"; }
+
+        ctx.fillStyle=bg; roundRect(ctx,cx,cy,COL_W,COL_H); ctx.fill();
+        ctx.strokeStyle=stroke; ctx.lineWidth=1.2; roundRect(ctx,cx,cy,COL_W,COL_H); ctx.stroke();
+
+        ctx.fillStyle=tc; ctx.font=`bold 14px Arial`; ctx.textAlign="center";
+        ctx.fillText(c.id,cx+COL_W/2,cy+21);
+
+        cx+=COL_W+GAP;
+      });
+      const rows=Math.ceil(items.length/COLS);
+      curY+=rows*(COL_H+GAP)+12;
+    });
+
+    // ── Leyenda ──
+    curY+=8;
+    ctx.fillStyle="#ffffff15"; ctx.fillRect(0,curY,W,50);
+    const leyenda=[
+      {bg:T.haveBg, tc:T.haveText, stroke:T.haveText+"88", label:"Ya lo tengo pegado"},
+      {bg:T.needBg, tc:T.needText, stroke:T.needText+"66", label:"Me falta"},
+      {bg:T.dblBg,  tc:T.dblText,  stroke:T.dblText+"88",  label:"Tengo doble (para intercambiar)"},
+    ];
+    let lx=MARGIN;
+    leyenda.forEach(({bg,tc,stroke,label})=>{
+      ctx.fillStyle=bg; roundRect(ctx,lx,curY+10,70,26); ctx.fill();
+      ctx.strokeStyle=stroke; ctx.lineWidth=1; roundRect(ctx,lx,curY+10,70,26); ctx.stroke();
+      ctx.fillStyle=tc; ctx.font="bold 12px Arial"; ctx.textAlign="center";
+      ctx.fillText("CROMO",lx+35,curY+27);
+      ctx.fillStyle="#ffffff99"; ctx.font="14px Arial"; ctx.textAlign="left";
+      ctx.fillText(label,lx+78,curY+27);
+      lx+=280;
+    });
+
+    // Footer
+    curY+=50;
+    ctx.fillStyle=T.header+"33"; ctx.fillRect(0,curY,W,40);
+    ctx.fillStyle=T.header; ctx.font="bold 18px Arial"; ctx.textAlign="center";
+    ctx.fillText("⚽  cromos-panini.vercel.app  ·  ¡Encontrá con quién intercambiar cerca tuyo!  ⚽",W/2,curY+26);
+
+    // Descargar como JPG
+    canvas.toBlob(blob=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url;
+      a.download=`planilla_${user.username}_${T.name}_${Date.now()}.jpg`;
+      a.click(); URL.revokeObjectURL(url);
+    },"image/jpeg",0.95);
+  };
+
+  function roundRect(ctx,x,y,w,h,r=6){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+  }
 
     const THEMES = [
       { bg:["#0a0800","#2a1f00","#0a0800"], accent:"#C9A84C", accent2:"#FFD700", text:"#FFFDE7", sub:"#C9A84C88", card:"rgba(201,168,76,0.12)", border:"rgba(201,168,76,0.4)", name:"Oro Clásico" },
@@ -367,177 +547,6 @@ function CromosScreen({ user }) {
       { bg:["#0a0f1a","#111827","#0a0f1a"], accent:"#94A3B8", accent2:"#CBD5E1", text:"#F1F5F9", sub:"#94A3B888", card:"rgba(148,163,184,0.12)", border:"rgba(148,163,184,0.4)", name:"Plata Hielo" },
       { bg:["#0f0a00","#231500","#0f0a00"], accent:"#F59E0B", accent2:"#FCD34D", text:"#FFFBEB", sub:"#F59E0B88", card:"rgba(245,158,11,0.12)", border:"rgba(245,158,11,0.4)", name:"Dorado Brillante" },
     ];
-
-    const theme = THEMES[Math.floor(Math.random() * THEMES.length)];
-    const W = 1080;
-    const chipW=110, chipH=38, chipGap=8;
-    const perRow = Math.floor((W-80)/(chipW+chipGap));
-
-    function roundRect(ctx,x,y,w,h,r){
-      ctx.beginPath();
-      ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-      ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-      ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-      ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
-      ctx.closePath();
-    }
-
-    // ── Calcular altura total primero ──
-    let calcH = 480; // header + stats + barra
-    const calcSection = (bySec, headerH=90) => {
-      calcH += headerH; // título sección
-      bySec.forEach(({items}) => {
-        calcH += 62; // fila país
-        const rows = Math.ceil(items.length / perRow);
-        calcH += rows * (chipH + chipGap) + 14;
-      });
-    };
-    if(missingBySec.length>0) calcSection(missingBySec);
-    if(doublesBySec.length>0) calcSection(doublesBySec);
-    calcH += 120; // footer
-
-    const H = Math.max(1920, calcH);
-    const canvas = document.createElement("canvas");
-    canvas.width=W; canvas.height=H;
-    const ctx = canvas.getContext("2d");
-
-    // Fondo degradado
-    const grad = ctx.createLinearGradient(0,0,W,H);
-    grad.addColorStop(0, theme.bg[0]);
-    grad.addColorStop(0.5, theme.bg[1]);
-    grad.addColorStop(1, theme.bg[2]);
-    ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
-
-    // Círculos decorativos
-    [[W*0.85,200,350],[W*0.1,H*0.4,250],[W*0.9,H*0.7,280],[W*0.15,H*0.85,200]].forEach(([x,y,r])=>{
-      const rg=ctx.createRadialGradient(x,y,0,x,y,r);
-      rg.addColorStop(0,theme.accent+"22"); rg.addColorStop(1,"transparent");
-      ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-    });
-
-    // Patrón rombos
-    ctx.strokeStyle=theme.accent+"15"; ctx.lineWidth=1;
-    for(let x=-100;x<W+100;x+=60){
-      for(let y=-100;y<H+100;y+=60){
-        ctx.beginPath();
-        ctx.moveTo(x,y-30); ctx.lineTo(x+30,y); ctx.lineTo(x,y+30); ctx.lineTo(x-30,y);
-        ctx.closePath(); ctx.stroke();
-      }
-    }
-
-    // Header
-    ctx.fillStyle=theme.accent+"33"; ctx.fillRect(0,0,W,230);
-    ctx.strokeStyle=theme.accent+"66"; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.moveTo(0,230); ctx.lineTo(W,230); ctx.stroke();
-    ctx.font="85px serif"; ctx.textAlign="center"; ctx.fillText("⚽",W/2,100);
-    ctx.fillStyle=theme.accent2; ctx.font="bold 54px 'Arial Black',Arial";
-    ctx.fillText("FIFA WORLD CUP 2026",W/2,162);
-    ctx.fillStyle=theme.accent+"cc"; ctx.font="28px Arial";
-    ctx.fillText("CROMOS PANINI",W/2,200);
-
-    // Nombre
-    ctx.fillStyle=theme.text; ctx.font="bold 40px Arial"; ctx.textAlign="center";
-    ctx.fillText(user.name,W/2,280);
-    if(user.provincia){
-      ctx.fillStyle=theme.accent+"cc"; ctx.font="26px Arial";
-      ctx.fillText(`📍 ${user.provincia}${user.canton?`, ${user.canton}`:""}`,W/2,318);
-    }
-    ctx.fillStyle=theme.sub; ctx.font="22px Arial";
-    ctx.fillText(`${new Date().toLocaleDateString("es-CR")} · ${theme.name}`,W/2,355);
-
-    // Barra progreso
-    const barY=375, barH=30, barW=W-120;
-    ctx.fillStyle=theme.accent+"22"; roundRect(ctx,60,barY,barW,barH,15); ctx.fill();
-    const fillW=Math.max(30,Math.round(barW*(totalHave/TOTAL)));
-    ctx.fillStyle=theme.accent2; roundRect(ctx,60,barY,fillW,barH,15); ctx.fill();
-    ctx.fillStyle=theme.text; ctx.font="bold 18px Arial"; ctx.textAlign="center";
-    ctx.fillText(`${totalPct}% completado — ${totalHave}/${TOTAL} pegados`,W/2,barY+20);
-
-    // Stats
-    const stats=[
-      {label:"TENGO",    val:totalHave,    color:"#4CC87A"},
-      {label:"ME FALTAN",val:totalMissing, color:"#E07070"},
-      {label:"DOBLES",   val:doubles.length,color:theme.accent2},
-    ];
-    const bw=300, bxStart=30, by=420;
-    stats.forEach((s,i)=>{
-      const x=bxStart+i*(bw+15);
-      ctx.fillStyle=theme.card; roundRect(ctx,x,by,bw,110,16); ctx.fill();
-      ctx.strokeStyle=theme.border; ctx.lineWidth=2; roundRect(ctx,x,by,bw,110,16); ctx.stroke();
-      ctx.fillStyle=s.color; ctx.font="bold 58px Arial"; ctx.textAlign="center";
-      ctx.fillText(s.val,x+bw/2,by+70);
-      ctx.fillStyle=theme.sub; ctx.font="bold 20px Arial";
-      ctx.fillText(s.label,x+bw/2,by+100);
-    });
-
-    let curY=560;
-
-    const drawSection = (bySec, sectionTitle, chipColor, borderColor) => {
-      // Cabecera sección
-      ctx.fillStyle=theme.accent+"2a"; roundRect(ctx,40,curY,W-80,72,14); ctx.fill();
-      ctx.strokeStyle=theme.accent+"44"; ctx.lineWidth=1.5; roundRect(ctx,40,curY,W-80,72,14); ctx.stroke();
-      ctx.fillStyle=chipColor; ctx.font="bold 34px Arial"; ctx.textAlign="center";
-      ctx.fillText(sectionTitle,W/2,curY+47);
-      curY+=88;
-
-      bySec.forEach(({sec,items})=>{
-        // Fila país
-        ctx.fillStyle=theme.card; roundRect(ctx,40,curY,W-80,54,10); ctx.fill();
-        ctx.strokeStyle=theme.border; ctx.lineWidth=1.5; roundRect(ctx,40,curY,W-80,54,10); ctx.stroke();
-        ctx.fillStyle=theme.text; ctx.font="bold 26px Arial"; ctx.textAlign="left";
-        ctx.fillText(`${sec.flag}  ${sec.name}`,72,curY+36);
-        ctx.fillStyle=theme.accent+"bb"; ctx.font="22px Arial"; ctx.textAlign="right";
-        ctx.fillText(`${items.length}`,W-72,curY+36);
-        curY+=62;
-
-        // Chips
-        let cx=60, cy=curY;
-        items.forEach((item,i)=>{
-          if(i>0&&i%perRow===0){ cx=60; cy+=chipH+chipGap; }
-          ctx.fillStyle=theme.card;
-          ctx.strokeStyle=borderColor; ctx.lineWidth=1.3;
-          ctx.beginPath(); roundRect(ctx,cx,cy,chipW,chipH,9); ctx.fill(); ctx.stroke();
-          ctx.fillStyle=chipColor; ctx.font="bold 16px Arial"; ctx.textAlign="center";
-          ctx.fillText(item.id,cx+chipW/2,cy+25);
-          cx+=chipW+chipGap;
-        });
-        const rows=Math.ceil(items.length/perRow);
-        curY=cy+chipH+16;
-      });
-      curY+=10;
-    };
-
-    if(missingBySec.length>0) drawSection(missingBySec,`🔴  BUSCO (${missing.length} cromos)`,"#E07070","#E07070aa");
-    if(doublesBySec.length>0) drawSection(doublesBySec,`🟢  TENGO DOBLES (${doubles.length})`,theme.accent2,theme.accent+"aa");
-
-    // Footer
-    const footerY=Math.max(curY+20, H-100);
-    ctx.fillStyle=theme.accent+"22"; ctx.fillRect(0,footerY,W,100);
-    ctx.strokeStyle=theme.accent+"44"; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(0,footerY); ctx.lineTo(W,footerY); ctx.stroke();
-    ctx.fillStyle=theme.accent2; ctx.font="bold 28px Arial"; ctx.textAlign="center";
-    ctx.fillText("🔗 cromos-panini.vercel.app",W/2,footerY+45);
-    ctx.fillStyle=theme.sub; ctx.font="22px Arial";
-    ctx.fillText("¡Encontrá con quién intercambiar cerca tuyo!",W/2,footerY+78);
-
-    canvas.toBlob(blob=>{
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement("a");
-      a.href=url;
-      a.download=`cromos_${user.username}_${theme.name.replace(/\s/g,"_")}_${Date.now()}.png`;
-      a.click(); URL.revokeObjectURL(url);
-    },"image/png");
-  };
-
-  function roundRect(ctx,x,y,w,h,r){
-    ctx.beginPath();
-    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
-    ctx.closePath();
-  }
-  }
 
   return (
     <div className="ani">
