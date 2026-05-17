@@ -597,7 +597,7 @@ const GTYPES = [
   {id:"deporte",label:"Deporte",  icon:"⚽", color:"#4CC8C8"},
 ];
 
-function GroupsScreen({ user, onUserUpdate }) {
+function GroupsScreen({ user, onUserUpdate, onChat }) {
   const [modal,  setModal]  = useState(null);
   const [form,   setForm]   = useState({name:"",type:"vecinos",code:""});
   const [msg,    setMsg]    = useState({t:"",k:""});
@@ -657,7 +657,7 @@ function GroupsScreen({ user, onUserUpdate }) {
     flash("Saliste del grupo.");
   };
 
-  if(detail) return <GroupDetail group={detail} user={user} onBack={()=>setDetail(null)} onLeave={leaveGroup}/>;
+  if(detail) return <GroupDetail group={detail} user={user} onBack={()=>setDetail(null)} onLeave={leaveGroup} onChat={onChat}/>;
 
   const gt = id=>GTYPES.find(t=>t.id===id)||GTYPES[0];
 
@@ -760,7 +760,7 @@ function GroupsScreen({ user, onUserUpdate }) {
 }
 
 // ─── DETALLE GRUPO ────────────────────────────────────────────────────────────
-function GroupDetail({ group, user, onBack, onLeave }) {
+function GroupDetail({ group, user, onBack, onLeave, onChat }) {
   const [tab, setTab]       = useState("matches");
   const [members, setMembers] = useState([]);
   const [cromos,  setCromos]  = useState({});
@@ -862,6 +862,9 @@ function GroupDetail({ group, user, onBack, onLeave }) {
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <span className="badge b-gold">🔄 {iGive.length+theyGive.length}</span>
+                    <button className="btn btn-blue btn-sm" onClick={()=>onChat(member.id)}>
+                      💬 Chat
+                    </button>
                     {member.whatsapp && (
                       <a href={`https://wa.me/${member.whatsapp.replace(/\D/g,"")}?text=${encodeURIComponent(
                         `¡Hola ${member.name}! Vi en Cromos Panini 2026 que podemos intercambiar:\n\n`+
@@ -1527,7 +1530,7 @@ export default function App() {
           {tab==="cromos"  && <CromosScreen user={user}/>}
           {tab==="mercado" && <MercadoScreen user={user} onChat={uid=>{ setTab("chat"); }}/>}
           {tab==="chat"    && <ChatScreen user={user}/>}
-          {tab==="grupos"  && <GroupsScreen user={user} onUserUpdate={updateUser}/>}
+          {tab==="grupos"  && <GroupsScreen user={user} onUserUpdate={updateUser} onChat={uid=>setTab("chat")}/>}
           {tab==="perfil"  && <ProfileScreen user={user} onUserUpdate={updateUser} onLogout={logout}/>}
         </div>
       </div>
