@@ -164,6 +164,10 @@ function AuthScreen({ onLogin }) {
         const { data, error } = await supabase.auth.signInWithPassword({ email:f.email, password:f.password });
         if (error) return setErr("Email o contraseña incorrectos.");
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
+        if (profile?.blocked) {
+          await supabase.auth.signOut();
+          return setErr("Tu cuenta ha sido suspendida. Contactá al administrador.");
+        }
         onLogin(profile);
       } else {
         if (!f.name.trim()||!f.username.trim()||!f.email.trim()||!f.password.trim()||!f.city.trim())
@@ -1458,6 +1462,258 @@ function ChatScreen({ user, openWith, onChatOpen }) {
   );
 }
 
+// ─── PANEL ADMIN ─────────────────────────────────────────────────────────────
+function AdminScreen({ user }) {
+  const [users,    setUsers]   = useState([]);
+  const [cromos,   setCromos]  = useState({});
+  const [loading,  setLoading] = useState(true);
+  const [search,   setSearch]  = useState("");
+  const [filter,   setFilter]  = useState("all"); // all | active | blocked | admin
+  const [tab,      setTab]     = useState("users"); // users | stats
+  const [msg,      setMsg]     = useState("");
+
+  const flash = t => { setMsg(t); setTimeout(()=>setMsg(""),3000); };
+
+  const load = async () => {
+    const { data:profs } = await supabase.from("profiles").select("*").order("created_at",{ascending:false});
+    const { data:crms }  = await supabase.from("user_cromos").select("*");
+    const map = {};
+    (crms||[]).forEach(c=>{ map[c.user_id]={have:c.have||[],doubles:c.doubles||[]}; });
+    setUsers(profs||[]);
+    setCromos(map);
+    setLoading(false);
+  };
+
+  useEffect(()=>{ load(); },[]);
+
+  const toggleBlock = async (u) => {
+    const newVal = !u.blocked;
+    await supabase.from("profiles").update({blocked:newVal}).eq("id",u.id);
+    setUsers(prev=>prev.map(x=>x.id===u.id?{...x,blocked:newVal}:x));
+    flash(`Usuario ${u.name} ${newVal?"bloqueado":"desbloqueado"}.`);
+  };
+
+  const toggleAdmin = async (u) => {
+    if (u.id === user.id) return flash("No podés quitarte el admin a vos mismo.");
+    const newVal = !u.is_admin;
+    await supabase.from("profiles").update({is_admin:newVal}).eq("id",u.id);
+    setUsers(prev=>prev.map(x=>x.id===u.id?{...x,is_admin:newVal}:x));
+    flash(`${u.name} ${newVal?"ahora es admin":"ya no es admin"}.`);
+  };
+
+  const deleteUser = async (u) => {
+    if (!confirm(`¿Seguro que querés eliminar a ${u.name}? Esta acción no se puede deshacer.`)) return;
+    await supabase.from("user_cromos").delete().eq("user_id",u.id);
+    await supabase.from("profiles").delete().eq("id",u.id);
+    setUsers(prev=>prev.filter(x=>x.id!==u.id));
+    flash(`Usuario ${u.name} eliminado.`);
+  };
+
+  const filtered = users.filter(u=>{
+    if(filter==="blocked" && !u.blocked) return false;
+    if(filter==="active"  &&  u.blocked) return false;
+    if(filter==="admin"   && !u.is_admin) return false;
+    if(search.trim() && !u.name.toLowerCase().includes(search.toLowerCase()) &&
+       !u.username.toLowerCase().includes(search.toLowerCase()) &&
+       !u.email?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  // Estadísticas
+  const totalUsers   = users.length;
+  const blocked      = users.filter(u=>u.blocked).length;
+  const withCromos   = users.filter(u=>(cromos[u.id]?.have||[]).length>0).length;
+  const withDoubles  = users.filter(u=>(cromos[u.id]?.doubles||[]).length>0).length;
+  const avgPct       = users.length>0 ? Math.round(users.reduce((acc,u)=>{
+    const h=(cromos[u.id]?.have||[]).length;
+    return acc+Math.round((h/TOTAL)*100);
+  },0)/users.length) : 0;
+  const byProv = PROVINCIAS.reduce((acc,p)=>{
+    acc[p] = users.filter(u=>u.provincia===p).length;
+    return acc;
+  },{});
+
+  return (
+    <div className="ani">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:10}}>
+        <div className="h1" style={{fontSize:24,letterSpacing:2}}>🛡️ PANEL ADMIN</div>
+        <button className="btn btn-ghost btn-sm" onClick={load}>🔄 Actualizar</button>
+      </div>
+
+      {msg && <div className="alert alert-ok ani" style={{marginBottom:14}}>{msg}</div>}
+
+      {/* Tabs */}
+      <div style={{display:"flex",gap:6,marginBottom:18}}>
+        {[["users","👥 Usuarios"],["stats","📊 Estadísticas"]].map(([k,l])=>(
+          <div key={k} className={`nav-item ${tab===k?"active":""}`} onClick={()=>setTab(k)}>{l}</div>
+        ))}
+      </div>
+
+      {tab==="stats" && (
+        <div className="ani">
+          {/* Stats globales */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:20}}>
+            <div className="stat"><div className="stat-n" style={{color:G.accent}}>{totalUsers}</div><div className="stat-l">USUARIOS TOTAL</div></div>
+            <div className="stat"><div className="stat-n" style={{color:G.accent3}}>{withCromos}</div><div className="stat-l">ACTIVOS</div></div>
+            <div className="stat"><div className="stat-n" style={{color:G.accent2}}>{withDoubles}</div><div className="stat-l">CON DOBLES</div></div>
+            <div className="stat"><div className="stat-n" style={{color:"#E07070"}}>{blocked}</div><div className="stat-l">BLOQUEADOS</div></div>
+            <div className="stat"><div className="stat-n" style={{color:G.accent}}>{avgPct}%</div><div className="stat-l">PROGRESO PROM.</div></div>
+          </div>
+
+          {/* Por provincia */}
+          <div className="card" style={{marginBottom:14}}>
+            <div className="h1" style={{fontSize:16,letterSpacing:2,marginBottom:14}}>USUARIOS POR PROVINCIA</div>
+            {PROVINCIAS.map(p=>{
+              const count = byProv[p]||0;
+              const pct   = totalUsers>0?Math.round((count/totalUsers)*100):0;
+              return (
+                <div key={p} style={{marginBottom:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
+                    <span style={{color:G.text}}>{p}</span>
+                    <span style={{color:G.muted}}>{count} usuarios ({pct}%)</span>
+                  </div>
+                  <div className="prog-bar">
+                    <div className="prog-fill" style={{width:`${pct}%`}}/>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{marginTop:10,fontSize:12,color:G.muted}}>
+              Sin provincia: {users.filter(u=>!u.provincia).length} usuarios
+            </div>
+          </div>
+
+          {/* Top usuarios más avanzados */}
+          <div className="card">
+            <div className="h1" style={{fontSize:16,letterSpacing:2,marginBottom:14}}>🏆 TOP 10 MÁS AVANZADOS</div>
+            {[...users].sort((a,b)=>(cromos[b.id]?.have||[]).length-(cromos[a.id]?.have||[]).length)
+              .slice(0,10).map((u,i)=>{
+              const have = (cromos[u.id]?.have||[]).length;
+              const pct  = Math.round((have/TOTAL)*100);
+              return (
+                <div key={u.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,
+                  padding:"8px 10px",background:G.bg,borderRadius:9}}>
+                  <div style={{width:24,textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif",
+                    fontSize:18,fontWeight:900,color:i<3?G.accent:G.muted}}>
+                    {i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`}
+                  </div>
+                  {u.avatar_url
+                    ? <img src={u.avatar_url} style={{width:32,height:32,borderRadius:"50%",objectFit:"cover"}}/>
+                    : <div style={{width:32,height:32,borderRadius:"50%",background:G.border,display:"flex",alignItems:"center",justifyContent:"center"}}>👤</div>}
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:13}}>{u.name}</div>
+                    <div style={{fontSize:11,color:G.muted}}>@{u.username}{u.provincia?` · ${u.provincia}`:""}</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{color:G.accent3,fontWeight:700,fontSize:14}}>{pct}%</div>
+                    <div style={{fontSize:11,color:G.muted}}>{have}/{TOTAL}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {tab==="users" && (
+        <div className="ani">
+          {/* Filtros */}
+          <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+            <input className="input" placeholder="🔍 Buscar por nombre, usuario o email..."
+              value={search} onChange={e=>setSearch(e.target.value)}
+              style={{flex:1,minWidth:200}}/>
+            <div style={{display:"flex",gap:6}}>
+              {[["all","Todos"],["active","Activos"],["blocked","Bloqueados"],["admin","Admins"]].map(([k,l])=>(
+                <button key={k} className="btn btn-sm" onClick={()=>setFilter(k)}
+                  style={{background:filter===k?G.accent:G.border,color:filter===k?"#08100a":G.muted}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{fontSize:12,color:G.muted,marginBottom:10}}>{filtered.length} usuarios</div>
+
+          {loading ? (
+            <div style={{display:"flex",justifyContent:"center",padding:40}}><div className="spinner"/></div>
+          ) : (
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {filtered.map(u=>{
+                const ud   = cromos[u.id]||{have:[],doubles:[]};
+                const have = ud.have.length;
+                const pct  = Math.round((have/TOTAL)*100);
+                return (
+                  <div key={u.id} className="card" style={{borderColor:u.blocked?"rgba(200,76,76,.3)":u.is_admin?"rgba(201,168,76,.3)":G.border}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        {u.avatar_url
+                          ? <img src={u.avatar_url} style={{width:42,height:42,borderRadius:"50%",objectFit:"cover",border:`2px solid ${G.border}`}}/>
+                          : <div style={{width:42,height:42,borderRadius:"50%",background:G.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>👤</div>}
+                        <div>
+                          <div style={{fontWeight:800,fontSize:15,display:"flex",alignItems:"center",gap:6}}>
+                            {u.name}
+                            {u.is_admin && <span className="badge b-gold" style={{fontSize:10}}>ADMIN</span>}
+                            {u.blocked  && <span className="badge b-red"  style={{fontSize:10}}>BLOQUEADO</span>}
+                            {u.id===user.id && <span className="badge b-blue" style={{fontSize:10}}>YO</span>}
+                          </div>
+                          <div style={{fontSize:12,color:G.muted}}>
+                            @{u.username}
+                            {u.provincia && ` · 📍 ${u.provincia}${u.canton?`, ${u.canton}`:""}`}
+                          </div>
+                          {u.whatsapp && <div style={{fontSize:11,color:G.muted}}>📱 {u.whatsapp}</div>}
+                        </div>
+                      </div>
+
+                      {/* Acciones */}
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                        <button className="btn btn-sm" onClick={()=>toggleAdmin(u)}
+                          style={{background:u.is_admin?"rgba(201,168,76,.2)":"rgba(76,154,200,.15)",
+                            color:u.is_admin?G.accent:G.accent2,
+                            border:`1px solid ${u.is_admin?"rgba(201,168,76,.4)":"rgba(76,154,200,.3)"}`}}>
+                          {u.is_admin?"⬇️ Quitar admin":"⬆️ Hacer admin"}
+                        </button>
+                        <button className="btn btn-sm" onClick={()=>toggleBlock(u)}
+                          style={{background:u.blocked?"rgba(76,200,122,.15)":"rgba(200,76,76,.15)",
+                            color:u.blocked?G.accent3:"#E07070",
+                            border:`1px solid ${u.blocked?"rgba(76,200,122,.3)":"rgba(200,76,76,.3)"}`}}>
+                          {u.blocked?"✅ Desbloquear":"🚫 Bloquear"}
+                        </button>
+                        {u.id!==user.id && (
+                          <button className="btn btn-sm btn-danger" onClick={()=>deleteUser(u)}>
+                            🗑️ Eliminar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Stats del usuario */}
+                    <div style={{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}}>
+                      <div style={{flex:1,minWidth:200}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:G.muted,marginBottom:4}}>
+                          <span>Progreso álbum</span>
+                          <span style={{color:G.accent3,fontWeight:700}}>{pct}% ({have}/{TOTAL})</span>
+                        </div>
+                        <div className="prog-bar">
+                          <div className="prog-fill" style={{width:`${pct}%`}}/>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <span className="badge b-green" style={{fontSize:11}}>{have} pegados</span>
+                        <span className="badge b-gold"  style={{fontSize:11}}>{ud.doubles.length} dobles</span>
+                        <span className="badge b-red"   style={{fontSize:11}}>{TOTAL-have} faltan</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── APP PRINCIPAL ────────────────────────────────────────────────────────────
 export default function App() {
   const [user,    setUser]    = useState(null);
@@ -1503,6 +1759,7 @@ export default function App() {
     {id:"chat",   label:"💬 Mensajes"},
     {id:"grupos", label:"🏘️ Grupos"},
     {id:"perfil", label:"👤 Perfil"},
+    ...(user.is_admin ? [{id:"admin", label:"🛡️ Admin"}] : []),
   ];
 
   return (
@@ -1539,6 +1796,7 @@ export default function App() {
           {tab==="chat"    && <ChatScreen user={user} openWith={chatWith} onChatOpen={()=>setChatWith(null)}/>}
           {tab==="grupos"  && <GroupsScreen user={user} onUserUpdate={updateUser} onChat={uid=>{ setChatWith(uid); setTab("chat"); }}/>}
           {tab==="perfil"  && <ProfileScreen user={user} onUserUpdate={updateUser} onLogout={logout}/>}
+          {tab==="admin"   && user.is_admin && <AdminScreen user={user}/>}
         </div>
       </div>
     </>
