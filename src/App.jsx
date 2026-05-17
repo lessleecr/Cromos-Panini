@@ -345,11 +345,71 @@ function CromosScreen({ user }) {
   const totalPct     = Math.round((totalHave / TOTAL) * 100);
   const totalMissing = TOTAL - totalHave;
 
+  const descargar = () => {
+    const missing = ALL_CROMOS.filter(c => !data.have.includes(c.id));
+    const doubles = ALL_CROMOS.filter(c => data.doubles.includes(c.id));
+
+    const missingBySec = SECTIONS.map(s => ({
+      sec: s,
+      items: missing.filter(c => c.section === s.id),
+    })).filter(x => x.items.length > 0);
+
+    const doublesBySec = SECTIONS.map(s => ({
+      sec: s,
+      items: doubles.filter(c => c.section === s.id),
+    })).filter(x => x.items.length > 0);
+
+    const lines = [];
+    lines.push(`⚽ *CROMOS PANINI - FIFA WORLD CUP 2026*`);
+    lines.push(`👤 ${user.name}${user.provincia ? ` | 📍 ${user.provincia}${user.canton?`, ${user.canton}`:""}` : ""}`);
+    lines.push(`📅 ${new Date().toLocaleDateString("es-CR")}`);
+    lines.push(`📊 Progreso: ${totalHave}/${TOTAL} pegados (${totalPct}%)`);
+    lines.push(``);
+
+    if (missing.length > 0) {
+      lines.push(`🔴 *BUSCO ESTOS CROMOS (${missing.length})*`);
+      lines.push(`_Si tenés alguno de sobra, ¡escribime!_`);
+      lines.push(``);
+      missingBySec.forEach(({sec, items}) => {
+        lines.push(`${sec.flag} *${sec.name}* — ${items.length} cromos`);
+        lines.push(items.map(c => `#${c.id}`).join(" · "));
+        lines.push(``);
+      });
+    }
+
+    if (doubles.length > 0) {
+      lines.push(`🟢 *TENGO ESTOS CROMOS DE SOBRA (${doubles.length})*`);
+      lines.push(`_Los cambio por los que me faltan_`);
+      lines.push(``);
+      doublesBySec.forEach(({sec, items}) => {
+        lines.push(`${sec.flag} *${sec.name}* — ${items.length} dobles`);
+        lines.push(items.map(c => `#${c.id}`).join(" · "));
+        lines.push(``);
+      });
+    }
+
+    lines.push(`🔗 Encontrá más intercambios en:`);
+    lines.push(`https://cromos-panini.vercel.app`);
+
+    const blob = new Blob([lines.join("\n")], { type:"text/plain;charset=utf-8" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `cromos_${user.username}_${new Date().toISOString().slice(0,10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="ani">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
         <div className="h1" style={{fontSize:24,letterSpacing:2}}>MI ÁLBUM — <span style={{color:G.accent}}>{user.name}</span></div>
-        {saving && <span style={{fontSize:12,color:G.accent2}}>💾 Guardando...</span>}
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {saving && <span style={{fontSize:12,color:G.accent2}}>💾 Guardando...</span>}
+          <button className="btn btn-ghost btn-sm" onClick={descargar} title="Descargar lista de cromos">
+            📥 Descargar lista
+          </button>
+        </div>
       </div>
 
       {/* Stats globales */}
