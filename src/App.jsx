@@ -356,50 +356,67 @@ function CromosScreen({ user }) {
     const doublesBySec = SECTIONS.map(s=>({sec:s,items:doubles.filter(c=>c.section===s.id)})).filter(x=>x.items.length>0);
 
     const THEMES = [
-      // 1 — Oro y negro clásico
       { bg:["#0a0800","#2a1f00","#0a0800"], accent:"#C9A84C", accent2:"#FFD700", text:"#FFFDE7", sub:"#C9A84C88", card:"rgba(201,168,76,0.12)", border:"rgba(201,168,76,0.4)", name:"Oro Clásico" },
-      // 2 — Azul estadio
       { bg:["#00051a","#001a4d","#00051a"], accent:"#4C9AC8", accent2:"#00BFFF", text:"#E8F4FD", sub:"#4C9AC888", card:"rgba(76,154,200,0.12)", border:"rgba(76,154,200,0.4)", name:"Azul Estadio" },
-      // 3 — Verde cancha
       { bg:["#001a00","#003300","#001a00"], accent:"#4CC87A", accent2:"#00FF7F", text:"#E8FDF0", sub:"#4CC87A88", card:"rgba(76,200,122,0.12)", border:"rgba(76,200,122,0.4)", name:"Verde Cancha" },
-      // 4 — Rojo pasión
       { bg:["#1a0000","#3d0000","#1a0000"], accent:"#C84C4C", accent2:"#FF4444", text:"#FDE8E8", sub:"#C84C4C88", card:"rgba(200,76,76,0.12)", border:"rgba(200,76,76,0.4)", name:"Rojo Pasión" },
-      // 5 — Galaxia morada
       { bg:["#0d0020","#1a0040","#0d0020"], accent:"#9B59B6", accent2:"#CC44FF", text:"#F0E8FD", sub:"#9B59B688", card:"rgba(155,89,182,0.12)", border:"rgba(155,89,182,0.4)", name:"Galaxia" },
-      // 6 — Atardecer naranja
       { bg:["#1a0800","#3d1500","#1a0800"], accent:"#E87C2A", accent2:"#FF8C00", text:"#FDF0E8", sub:"#E87C2A88", card:"rgba(232,124,42,0.12)", border:"rgba(232,124,42,0.4)", name:"Atardecer" },
-      // 7 — Cian neón
       { bg:["#001a1a","#003333","#001a1a"], accent:"#00CED1", accent2:"#00FFFF", text:"#E8FDFD", sub:"#00CED188", card:"rgba(0,206,209,0.12)", border:"rgba(0,206,209,0.4)", name:"Cian Neón" },
-      // 8 — Rosa fuego
       { bg:["#1a0012","#3d0028","#1a0012"], accent:"#E84CA0", accent2:"#FF1493", text:"#FDE8F4", sub:"#E84CA088", card:"rgba(232,76,160,0.12)", border:"rgba(232,76,160,0.4)", name:"Rosa Fuego" },
-      // 9 — Plata hielo
       { bg:["#0a0f1a","#111827","#0a0f1a"], accent:"#94A3B8", accent2:"#CBD5E1", text:"#F1F5F9", sub:"#94A3B888", card:"rgba(148,163,184,0.12)", border:"rgba(148,163,184,0.4)", name:"Plata Hielo" },
-      // 10 — Dorado brillante
       { bg:["#0f0a00","#231500","#0f0a00"], accent:"#F59E0B", accent2:"#FCD34D", text:"#FFFBEB", sub:"#F59E0B88", card:"rgba(245,158,11,0.12)", border:"rgba(245,158,11,0.4)", name:"Dorado Brillante" },
     ];
 
     const theme = THEMES[Math.floor(Math.random() * THEMES.length)];
-    const W = 1080, H = 1920;
+    const W = 1080;
+    const chipW=110, chipH=38, chipGap=8;
+    const perRow = Math.floor((W-80)/(chipW+chipGap));
+
+    function roundRect(ctx,x,y,w,h,r){
+      ctx.beginPath();
+      ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+      ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+      ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+      ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+      ctx.closePath();
+    }
+
+    // ── Calcular altura total primero ──
+    let calcH = 480; // header + stats + barra
+    const calcSection = (bySec, headerH=90) => {
+      calcH += headerH; // título sección
+      bySec.forEach(({items}) => {
+        calcH += 62; // fila país
+        const rows = Math.ceil(items.length / perRow);
+        calcH += rows * (chipH + chipGap) + 14;
+      });
+    };
+    if(missingBySec.length>0) calcSection(missingBySec);
+    if(doublesBySec.length>0) calcSection(doublesBySec);
+    calcH += 120; // footer
+
+    const H = Math.max(1920, calcH);
     const canvas = document.createElement("canvas");
-    canvas.width = W; canvas.height = H;
+    canvas.width=W; canvas.height=H;
     const ctx = canvas.getContext("2d");
 
     // Fondo degradado
     const grad = ctx.createLinearGradient(0,0,W,H);
-    grad.addColorStop(0,   theme.bg[0]);
+    grad.addColorStop(0, theme.bg[0]);
     grad.addColorStop(0.5, theme.bg[1]);
-    grad.addColorStop(1,   theme.bg[2]);
-    ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+    grad.addColorStop(1, theme.bg[2]);
+    ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
 
-    // Círculos decorativos de fondo
-    [[W*0.8,H*0.1,300],[W*0.1,H*0.5,200],[W*0.9,H*0.7,250],[W*0.2,H*0.9,180]].forEach(([x,y,r])=>{
-      const rg = ctx.createRadialGradient(x,y,0,x,y,r);
-      rg.addColorStop(0, theme.accent+"22"); rg.addColorStop(1,"transparent");
+    // Círculos decorativos
+    [[W*0.85,200,350],[W*0.1,H*0.4,250],[W*0.9,H*0.7,280],[W*0.15,H*0.85,200]].forEach(([x,y,r])=>{
+      const rg=ctx.createRadialGradient(x,y,0,x,y,r);
+      rg.addColorStop(0,theme.accent+"22"); rg.addColorStop(1,"transparent");
       ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
     });
 
-    // Patrón de rombos sutil
-    ctx.strokeStyle = theme.accent+"18"; ctx.lineWidth=1;
+    // Patrón rombos
+    ctx.strokeStyle=theme.accent+"15"; ctx.lineWidth=1;
     for(let x=-100;x<W+100;x+=60){
       for(let y=-100;y<H+100;y+=60){
         ctx.beginPath();
@@ -409,173 +426,117 @@ function CromosScreen({ user }) {
     }
 
     // Header
-    ctx.fillStyle = theme.accent+"33";
-    ctx.fillRect(0,0,W,220);
-    ctx.strokeStyle = theme.accent+"66"; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.moveTo(0,220); ctx.lineTo(W,220); ctx.stroke();
+    ctx.fillStyle=theme.accent+"33"; ctx.fillRect(0,0,W,230);
+    ctx.strokeStyle=theme.accent+"66"; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(0,230); ctx.lineTo(W,230); ctx.stroke();
+    ctx.font="85px serif"; ctx.textAlign="center"; ctx.fillText("⚽",W/2,100);
+    ctx.fillStyle=theme.accent2; ctx.font="bold 54px 'Arial Black',Arial";
+    ctx.fillText("FIFA WORLD CUP 2026",W/2,162);
+    ctx.fillStyle=theme.accent+"cc"; ctx.font="28px Arial";
+    ctx.fillText("CROMOS PANINI",W/2,200);
 
-    // Emoji balón
-    ctx.font="90px serif"; ctx.textAlign="center";
-    ctx.fillText("⚽",W/2,95);
-
-    // Título
-    ctx.fillStyle = theme.accent2;
-    ctx.font="bold 52px 'Arial Black',Arial";
-    ctx.letterSpacing="6px";
-    ctx.fillText("FIFA WORLD CUP 2026",W/2,155);
-
-    ctx.fillStyle = theme.accent+"cc";
-    ctx.font="28px Arial";
-    ctx.fillText("CROMOS PANINI",W/2,195);
-
-    // Nombre usuario
-    ctx.fillStyle = theme.text;
-    ctx.font="bold 38px Arial";
+    // Nombre
+    ctx.fillStyle=theme.text; ctx.font="bold 40px Arial"; ctx.textAlign="center";
     ctx.fillText(user.name,W/2,280);
     if(user.provincia){
-      ctx.fillStyle = theme.accent+"cc";
-      ctx.font="26px Arial";
-      ctx.fillText(`📍 ${user.provincia}${user.canton?`, ${user.canton}`:""}`,W/2,320);
+      ctx.fillStyle=theme.accent+"cc"; ctx.font="26px Arial";
+      ctx.fillText(`📍 ${user.provincia}${user.canton?`, ${user.canton}`:""}`,W/2,318);
     }
+    ctx.fillStyle=theme.sub; ctx.font="22px Arial";
+    ctx.fillText(`${new Date().toLocaleDateString("es-CR")} · ${theme.name}`,W/2,355);
 
-    // Fecha y tema
-    ctx.fillStyle = theme.sub;
-    ctx.font="22px Arial";
-    ctx.fillText(`${new Date().toLocaleDateString("es-CR")} · Tema: ${theme.name}`,W/2,360);
-
-    // Barra de progreso
-    const barY=390, barH=28, barW=W-120;
-    ctx.fillStyle=theme.accent+"22"; ctx.beginPath();
-    roundRect(ctx,60,barY,barW,barH,14); ctx.fill();
-    ctx.fillStyle=theme.accent2;
-    const fillW=Math.max(28,Math.round(barW*(totalHave/TOTAL)));
-    ctx.beginPath(); roundRect(ctx,60,barY,fillW,barH,14); ctx.fill();
+    // Barra progreso
+    const barY=375, barH=30, barW=W-120;
+    ctx.fillStyle=theme.accent+"22"; roundRect(ctx,60,barY,barW,barH,15); ctx.fill();
+    const fillW=Math.max(30,Math.round(barW*(totalHave/TOTAL)));
+    ctx.fillStyle=theme.accent2; roundRect(ctx,60,barY,fillW,barH,15); ctx.fill();
     ctx.fillStyle=theme.text; ctx.font="bold 18px Arial"; ctx.textAlign="center";
-    ctx.fillText(`${totalPct}% completado — ${totalHave}/${TOTAL} pegados`,W/2,barY+19);
+    ctx.fillText(`${totalPct}% completado — ${totalHave}/${TOTAL} pegados`,W/2,barY+20);
 
-    // Stats boxes
+    // Stats
     const stats=[
-      {label:"TENGO",    val:totalHave,  color:theme.accent3||"#4CC87A"},
-      {label:"ME FALTAN",val:totalMissing,color:"#E07070"},
+      {label:"TENGO",    val:totalHave,    color:"#4CC87A"},
+      {label:"ME FALTAN",val:totalMissing, color:"#E07070"},
       {label:"DOBLES",   val:doubles.length,color:theme.accent2},
     ];
-    const bw=280, bx=60, by=440;
+    const bw=300, bxStart=30, by=420;
     stats.forEach((s,i)=>{
-      const x=bx+i*(bw+30);
-      ctx.fillStyle=theme.card; ctx.beginPath(); roundRect(ctx,x,by,bw,110,16); ctx.fill();
-      ctx.strokeStyle=theme.border; ctx.lineWidth=2; ctx.beginPath(); roundRect(ctx,x,by,bw,110,16); ctx.stroke();
-      ctx.fillStyle=s.color; ctx.font="bold 56px Arial"; ctx.textAlign="center";
-      ctx.fillText(s.val,x+bw/2,by+68);
+      const x=bxStart+i*(bw+15);
+      ctx.fillStyle=theme.card; roundRect(ctx,x,by,bw,110,16); ctx.fill();
+      ctx.strokeStyle=theme.border; ctx.lineWidth=2; roundRect(ctx,x,by,bw,110,16); ctx.stroke();
+      ctx.fillStyle=s.color; ctx.font="bold 58px Arial"; ctx.textAlign="center";
+      ctx.fillText(s.val,x+bw/2,by+70);
       ctx.fillStyle=theme.sub; ctx.font="bold 20px Arial";
-      ctx.fillText(s.label,x+bw/2,by+98);
+      ctx.fillText(s.label,x+bw/2,by+100);
     });
 
-    let curY=580;
+    let curY=560;
 
-    // Sección BUSCO
-    if(missingBySec.length>0){
-      ctx.textAlign="center";
-      ctx.fillStyle=theme.accent+"33"; ctx.beginPath(); roundRect(ctx,40,curY,W-80,70,14); ctx.fill();
-      ctx.fillStyle="#E07070"; ctx.font="bold 34px Arial";
-      ctx.fillText(`🔴  BUSCO ESTOS CROMOS (${missing.length})`,W/2,curY+44);
-      curY+=90;
+    const drawSection = (bySec, sectionTitle, chipColor, borderColor) => {
+      // Cabecera sección
+      ctx.fillStyle=theme.accent+"2a"; roundRect(ctx,40,curY,W-80,72,14); ctx.fill();
+      ctx.strokeStyle=theme.accent+"44"; ctx.lineWidth=1.5; roundRect(ctx,40,curY,W-80,72,14); ctx.stroke();
+      ctx.fillStyle=chipColor; ctx.font="bold 34px Arial"; ctx.textAlign="center";
+      ctx.fillText(sectionTitle,W/2,curY+47);
+      curY+=88;
 
-      for(const {sec,items} of missingBySec){
-        if(curY>H-180) break;
-        // Nombre país
-        ctx.fillStyle=theme.card; ctx.beginPath(); roundRect(ctx,40,curY,W-80,52,10); ctx.fill();
-        ctx.strokeStyle=theme.border; ctx.lineWidth=1.5; ctx.beginPath(); roundRect(ctx,40,curY,W-80,52,10); ctx.stroke();
+      bySec.forEach(({sec,items})=>{
+        // Fila país
+        ctx.fillStyle=theme.card; roundRect(ctx,40,curY,W-80,54,10); ctx.fill();
+        ctx.strokeStyle=theme.border; ctx.lineWidth=1.5; roundRect(ctx,40,curY,W-80,54,10); ctx.stroke();
         ctx.fillStyle=theme.text; ctx.font="bold 26px Arial"; ctx.textAlign="left";
-        ctx.fillText(`${sec.flag}  ${sec.name}`,70,curY+35);
-        ctx.fillStyle=theme.accent+"cc"; ctx.font="22px Arial"; ctx.textAlign="right";
-        ctx.fillText(`${items.length} cromos`,W-70,curY+35);
-        curY+=60;
+        ctx.fillText(`${sec.flag}  ${sec.name}`,72,curY+36);
+        ctx.fillStyle=theme.accent+"bb"; ctx.font="22px Arial"; ctx.textAlign="right";
+        ctx.fillText(`${items.length}`,W-72,curY+36);
+        curY+=62;
 
-        // Chips de cromos
-        const chips=items.map(c=>c.id);
-        const chipW=110, chipH=36, gap=8, perRow=Math.floor((W-80)/(chipW+gap));
+        // Chips
         let cx=60, cy=curY;
-        chips.forEach((id,i)=>{
-          if(i>0&&i%perRow===0){ cx=60; cy+=chipH+gap; }
-          if(cy>H-160){ return; }
-          ctx.fillStyle="rgba(224,112,112,0.18)";
-          ctx.strokeStyle="#E07070aa"; ctx.lineWidth=1.2;
-          ctx.beginPath(); roundRect(ctx,cx,cy,chipW,chipH,8); ctx.fill(); ctx.stroke();
-          ctx.fillStyle="#E07070"; ctx.font="bold 16px Arial"; ctx.textAlign="center";
-          ctx.fillText(id,cx+chipW/2,cy+23);
-          cx+=chipW+gap;
-        });
-        const rows=Math.ceil(chips.length/perRow);
-        curY=cy+chipH+14;
-      }
-    }
-
-    // Sección DOBLES
-    if(doublesBySec.length>0 && curY<H-200){
-      curY+=10;
-      ctx.textAlign="center";
-      ctx.fillStyle=theme.accent+"33"; ctx.beginPath(); roundRect(ctx,40,curY,W-80,70,14); ctx.fill();
-      ctx.fillStyle=theme.accent2; ctx.font="bold 34px Arial";
-      ctx.fillText(`🟢  TENGO DOBLES (${doubles.length})`,W/2,curY+44);
-      curY+=90;
-
-      for(const {sec,items} of doublesBySec){
-        if(curY>H-180) break;
-        ctx.fillStyle=theme.card; ctx.beginPath(); roundRect(ctx,40,curY,W-80,52,10); ctx.fill();
-        ctx.strokeStyle=theme.border; ctx.lineWidth=1.5; ctx.beginPath(); roundRect(ctx,40,curY,W-80,52,10); ctx.stroke();
-        ctx.fillStyle=theme.text; ctx.font="bold 26px Arial"; ctx.textAlign="left";
-        ctx.fillText(`${sec.flag}  ${sec.name}`,70,curY+35);
-        ctx.fillStyle=theme.accent+"cc"; ctx.font="22px Arial"; ctx.textAlign="right";
-        ctx.fillText(`${items.length} dobles`,W-70,curY+35);
-        curY+=60;
-
-        const chips=items.map(c=>c.id);
-        const chipW=110, chipH=36, gap=8, perRow=Math.floor((W-80)/(chipW+gap));
-        let cx=60, cy=curY;
-        chips.forEach((id,i)=>{
-          if(i>0&&i%perRow===0){ cx=60; cy+=chipH+gap; }
-          if(cy>H-160) return;
+        items.forEach((item,i)=>{
+          if(i>0&&i%perRow===0){ cx=60; cy+=chipH+chipGap; }
           ctx.fillStyle=theme.card;
-          ctx.strokeStyle=theme.accent+"aa"; ctx.lineWidth=1.2;
-          ctx.beginPath(); roundRect(ctx,cx,cy,chipW,chipH,8); ctx.fill(); ctx.stroke();
-          ctx.fillStyle=theme.accent2; ctx.font="bold 16px Arial"; ctx.textAlign="center";
-          ctx.fillText(id,cx+chipW/2,cy+23);
-          cx+=chipW+gap;
+          ctx.strokeStyle=borderColor; ctx.lineWidth=1.3;
+          ctx.beginPath(); roundRect(ctx,cx,cy,chipW,chipH,9); ctx.fill(); ctx.stroke();
+          ctx.fillStyle=chipColor; ctx.font="bold 16px Arial"; ctx.textAlign="center";
+          ctx.fillText(item.id,cx+chipW/2,cy+25);
+          cx+=chipW+chipGap;
         });
-        const rows=Math.ceil(chips.length/perRow);
-        curY=cy+chipH+14;
-      }
-    }
+        const rows=Math.ceil(items.length/perRow);
+        curY=cy+chipH+16;
+      });
+      curY+=10;
+    };
+
+    if(missingBySec.length>0) drawSection(missingBySec,`🔴  BUSCO (${missing.length} cromos)`,"#E07070","#E07070aa");
+    if(doublesBySec.length>0) drawSection(doublesBySec,`🟢  TENGO DOBLES (${doubles.length})`,theme.accent2,theme.accent+"aa");
 
     // Footer
-    ctx.fillStyle=theme.accent+"22";
-    ctx.fillRect(0,H-100,W,100);
-    ctx.strokeStyle=theme.accent+"55"; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(0,H-100); ctx.lineTo(W,H-100); ctx.stroke();
-    ctx.fillStyle=theme.accent; ctx.font="bold 26px Arial"; ctx.textAlign="center";
-    ctx.fillText("🔗 cromos-panini.vercel.app",W/2,H-55);
-    ctx.fillStyle=theme.sub; ctx.font="20px Arial";
-    ctx.fillText("¡Encontrá con quién intercambiar cerca tuyo!",W/2,H-25);
+    const footerY=Math.max(curY+20, H-100);
+    ctx.fillStyle=theme.accent+"22"; ctx.fillRect(0,footerY,W,100);
+    ctx.strokeStyle=theme.accent+"44"; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(0,footerY); ctx.lineTo(W,footerY); ctx.stroke();
+    ctx.fillStyle=theme.accent2; ctx.font="bold 28px Arial"; ctx.textAlign="center";
+    ctx.fillText("🔗 cromos-panini.vercel.app",W/2,footerY+45);
+    ctx.fillStyle=theme.sub; ctx.font="22px Arial";
+    ctx.fillText("¡Encontrá con quién intercambiar cerca tuyo!",W/2,footerY+78);
 
-    // Descargar
     canvas.toBlob(blob=>{
       const url=URL.createObjectURL(blob);
       const a=document.createElement("a");
       a.href=url;
       a.download=`cromos_${user.username}_${theme.name.replace(/\s/g,"_")}_${Date.now()}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
+      a.click(); URL.revokeObjectURL(url);
     },"image/png");
   };
 
-  // Helper roundRect
   function roundRect(ctx,x,y,w,h,r){
-    ctx.moveTo(x+r,y);
-    ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
     ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
     ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
     ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
     ctx.closePath();
+  }
   }
 
   return (
