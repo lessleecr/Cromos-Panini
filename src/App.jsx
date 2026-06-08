@@ -323,6 +323,7 @@ function CromosScreen({ user }) {
   const [data, setData]     = useState({ have:[], doubles:[] });
   const [sec,  setSec]      = useState(SECTIONS[0].id);
   const [searchCromo, setSearchCromo] = useState("");
+  const [filterMode, setFilterMode]   = useState("all");
 
   // Resultado de búsqueda
   const searchResult = searchCromo.trim().length >= 2
