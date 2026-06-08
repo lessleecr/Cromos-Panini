@@ -320,7 +320,12 @@ function AuthScreen({ onLogin }) {
 function CromosScreen({ user }) {
   const [data, setData]     = useState({ have:[], doubles:[] });
   const [sec,  setSec]      = useState(SECTIONS[0].id);
-  const [sortOrder, setSortOrder] = useState("album"); // album | az | pct | missing
+  const [searchCromo, setSearchCromo] = useState("");
+
+  // Resultado de búsqueda
+  const searchResult = searchCromo.trim().length >= 2
+    ? ALL_CROMOS.filter(c => c.id.toLowerCase().includes(searchCromo.trim().toLowerCase()))
+    : [];
   const [saving, setSaving] = useState(false);
 
   useEffect(()=>{
@@ -617,6 +622,69 @@ function CromosScreen({ user }) {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Buscador de postales */}
+      <div style={{marginBottom:14}}>
+        <div style={{position:"relative"}}>
+          <input className="input" placeholder="🔍 Buscá una postal (ej: GER5, ARG, FWC...)"
+            value={searchCromo} onChange={e=>setSearchCromo(e.target.value)}
+            style={{paddingRight:searchCromo?40:14}}/>
+          {searchCromo && (
+            <button onClick={()=>setSearchCromo("")}
+              style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
+                background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:18}}>✕</button>
+          )}
+        </div>
+
+        {/* Resultados de búsqueda */}
+        {searchResult.length>0 && (
+          <div className="card" style={{marginTop:8,padding:12}}>
+            <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:10}}>
+              {searchResult.length} POSTAL{searchResult.length!==1?"ES":""} ENCONTRADA{searchResult.length!==1?"S":""}
+            </div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+              {searchResult.slice(0,30).map(c=>{
+                const sec    = SECTIONS.find(s=>s.id===c.section);
+                const have   = data.have.includes(c.id);
+                const dbl    = data.doubles.includes(c.id);
+                const missed = !have;
+                return (
+                  <div key={c.id}
+                    onClick={()=>{ setSec(c.section); setSearchCromo(""); }}
+                    style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",
+                      borderRadius:10,cursor:"pointer",transition:"all .15s",
+                      background:dbl?"rgba(76,154,200,.15)":have?"rgba(76,200,122,.12)":"rgba(200,76,76,.12)",
+                      border:`1px solid ${dbl?G.accent2+"55":have?"#4CC87A55":"#E0707055"}`}}>
+                    <span style={{fontSize:18}}>{sec?.flag}</span>
+                    <div>
+                      <div style={{fontWeight:800,fontSize:14,
+                        color:dbl?G.accent2:have?G.accent3:"#E07070"}}>
+                        {c.id}
+                      </div>
+                      <div style={{fontSize:11,color:G.muted}}>{sec?.name}</div>
+                    </div>
+                    <span style={{fontSize:11,fontWeight:700,
+                      color:dbl?G.accent2:have?G.accent3:"#E07070"}}>
+                      {dbl?"×2 Doble":have?"✓ Tengo":"✗ Falta"}
+                    </span>
+                  </div>
+                );
+              })}
+              {searchResult.length>30&&(
+                <div style={{fontSize:12,color:G.muted,alignSelf:"center"}}>
+                  +{searchResult.length-30} más — sé más específico
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {searchCromo.trim().length>=2 && searchResult.length===0 && (
+          <div style={{marginTop:8,padding:"10px 14px",background:G.card2,borderRadius:10,
+            fontSize:13,color:G.muted,border:`1px solid ${G.border}`}}>
+            No se encontró ninguna postal con ese código.
+          </div>
+        )}
       </div>
 
       {/* Selector de selección/país */}
