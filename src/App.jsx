@@ -324,6 +324,7 @@ function CromosScreen({ user }) {
   const [sec,  setSec]      = useState(SECTIONS[0].id);
   const [searchCromo, setSearchCromo] = useState("");
   const [filterMode, setFilterMode]   = useState("all");
+  const [sortOrder,  setSortOrder]    = useState("album");
 
   // Resultado de búsqueda
   const searchResult = searchCromo.trim().length >= 2
