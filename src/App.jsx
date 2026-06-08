@@ -2190,3 +2190,4 @@ export default function App() {
     </>
   );
 }
+modificado el 07-06-2026
