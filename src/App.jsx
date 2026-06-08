@@ -558,19 +558,6 @@ function CromosScreen({ user }) {
     ctx.closePath();
   }
 
-    const THEMES = [
-      { name:"Oro",      bg:"#0a0800", header:"#C9A84C", headerText:"#0a0800", secBg:"#1a1200", secText:"#FFD700", needBg:"#3d2800", needText:"#FFD700", haveBg:"#1a3300", haveText:"#4CC87A", dblBg:"#002233", dblText:"#00BFFF" },
-      { name:"Azul",     bg:"#00051a", header:"#1a4dff", headerText:"#ffffff", secBg:"#000d33", secText:"#7aadff", needBg:"#1a0033", needText:"#cc88ff", haveBg:"#001a33", haveText:"#00ffcc", dblBg:"#001a00", dblText:"#4CC87A" },
-      { name:"Verde",    bg:"#001a00", header:"#006600", headerText:"#ffffff", secBg:"#002200", secText:"#66ff66", needBg:"#330000", needText:"#ff6666", haveBg:"#003300", haveText:"#00ff44", dblBg:"#001a33", dblText:"#44aaff" },
-      { name:"Rojo",     bg:"#1a0000", header:"#cc0000", headerText:"#ffffff", secBg:"#2a0000", secText:"#ff6666", needBg:"#330a00", needText:"#ffaa44", haveBg:"#002200", haveText:"#44ff88", dblBg:"#000033", dblText:"#88aaff" },
-      { name:"Galaxia",  bg:"#0d0020", header:"#6600cc", headerText:"#ffffff", secBg:"#1a0033", secText:"#cc88ff", needBg:"#1a1a00", needText:"#ffff44", haveBg:"#001a1a", haveText:"#44ffff", dblBg:"#1a0000", dblText:"#ff6666" },
-      { name:"Atardecer",bg:"#1a0800", header:"#cc5500", headerText:"#ffffff", secBg:"#2a1000", secText:"#ffaa44", needBg:"#001a1a", needText:"#44ffff", haveBg:"#1a2200", haveText:"#88ff44", dblBg:"#1a001a", dblText:"#ff88ff" },
-      { name:"Cian",     bg:"#001a1a", header:"#007a7a", headerText:"#ffffff", secBg:"#002222", secText:"#00ffff", needBg:"#1a0000", needText:"#ff6666", haveBg:"#001a00", haveText:"#66ff88", dblBg:"#1a1a00", dblText:"#ffff44" },
-      { name:"Rosa",     bg:"#1a0012", header:"#cc0066", headerText:"#ffffff", secBg:"#2a0020", secText:"#ff66cc", needBg:"#001a00", needText:"#66ff88", haveBg:"#001a1a", haveText:"#44ffff", dblBg:"#1a1a00", dblText:"#ffff44" },
-      { name:"Plata",    bg:"#0a0f1a", header:"#334466", headerText:"#ffffff", secBg:"#111827", secText:"#aabbcc", needBg:"#1a0000", needText:"#ff8888", haveBg:"#001a00", haveText:"#88ff88", dblBg:"#001a1a", dblText:"#88ffff" },
-      { name:"Dorado",   bg:"#0f0a00", header:"#aa7700", headerText:"#ffffff", secBg:"#1a1200", secText:"#ffcc44", needBg:"#1a0000", needText:"#ff6666", haveBg:"#001a00", haveText:"#66ff88", dblBg:"#001a2a", dblText:"#44aaff" },
-    ];
-
     const T = THEMES[Math.floor(Math.random()*THEMES.length)];
     const W = 1400;
     const COLS = 20;
@@ -701,6 +688,7 @@ function CromosScreen({ user }) {
       a.click(); URL.revokeObjectURL(url);
     },"image/jpeg",0.95);
   };
+  return (
     <div className="ani">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
         <div className="h1" style={{fontSize:24,letterSpacing:2}}>MI ÁLBUM — <span style={{color:G.accent}}>{user.name}</span></div>
@@ -2190,4 +2178,3 @@ export default function App() {
     </>
   );
 }
-modificado el 07-06-2026
