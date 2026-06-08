@@ -169,6 +169,8 @@ function AuthScreen({ onLogin }) {
     setForgotMsg("✅ Te enviamos un email con el link para restablecer tu contraseña. Revisá tu bandeja.");
     setForgotMode(false);
   };
+
+  const submit = async () => {
     setErr(""); setLoading(true);
     try {
       if (mode === "login") {
@@ -2057,4 +2059,3 @@ export default function App() {
     </>
   );
 }
-// actualizado junio 2026
