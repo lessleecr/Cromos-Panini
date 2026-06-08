@@ -157,7 +157,18 @@ function AuthScreen({ onLogin }) {
   const [showTerms, setShowTerms] = useState(false);
   const hc = e => setF(p=>({...p,[e.target.name]:e.target.value}));
 
-  const submit = async () => {
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotMsg,  setForgotMsg]  = useState("");
+
+  const sendReset = async () => {
+    if (!f.email.trim()) return setErr("Ingresá tu email.");
+    const { error } = await supabase.auth.resetPasswordForEmail(f.email.trim(), {
+      redirectTo: "https://labolsadecromos.vercel.app"
+    });
+    if (error) return setErr("Error: " + error.message);
+    setForgotMsg("✅ Te enviamos un email con el link para restablecer tu contraseña. Revisá tu bandeja.");
+    setForgotMode(false);
+  };
     setErr(""); setLoading(true);
     try {
       if (mode === "login") {
@@ -252,6 +263,15 @@ function AuthScreen({ onLogin }) {
                 onKeyDown={e=>e.key==="Enter"&&submit()}/>
             </div>
             {err && <div className="alert alert-err">{err}</div>}
+            {forgotMsg && <div className="alert alert-ok">{forgotMsg}</div>}
+            {mode==="login" && (
+              <div style={{textAlign:"right"}}>
+                <span onClick={()=>setForgotMode(true)}
+                  style={{fontSize:12,color:G.accent2,cursor:"pointer",textDecoration:"underline"}}>
+                  ¿Olvidaste tu contraseña?
+                </span>
+              </div>
+            )}
             {mode==="register" && (
               <div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",
                 background:G.bg,borderRadius:9,border:`1px solid ${G.border}`}}>
@@ -300,7 +320,7 @@ function AuthScreen({ onLogin }) {
 function CromosScreen({ user }) {
   const [data, setData]     = useState({ have:[], doubles:[] });
   const [sec,  setSec]      = useState(SECTIONS[0].id);
-  const [filterMode, setFilterMode] = useState("all"); // all | missing | have | doubles
+  const [sortOrder, setSortOrder] = useState("album"); // album | az | pct | missing
   const [saving, setSaving] = useState(false);
 
   useEffect(()=>{
@@ -600,28 +620,57 @@ function CromosScreen({ user }) {
       </div>
 
       {/* Selector de selección/país */}
-      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
-        {SECTIONS.map(s=>{
-          const sCromos  = ALL_CROMOS.filter(c=>c.section===s.id);
-          const sGot     = sCromos.filter(c=>data.have.includes(c.id)).length;
-          const sPct     = Math.round((sGot/s.count)*100);
-          const sDoubles = data.doubles.filter(id=>id.startsWith(s.id)).length;
-          const active   = sec===s.id;
-          const complete = sPct===100;
-          return (
-            <button key={s.id} onClick={()=>setSec(s.id)}
-              style={{padding:"5px 10px",borderRadius:8,
-                border:`2px solid ${active?s.color:complete?"rgba(76,200,122,.5)":"transparent"}`,
-                background:active?`${s.color}20`:complete?"rgba(76,200,122,.08)":G.border,
-                color:active?s.color:complete?G.accent3:G.muted,
-                cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"Nunito",transition:"all .15s",
-                display:"flex",alignItems:"center",gap:4}}>
-              {complete?"✅":s.flag} {s.name}
-              <span style={{fontSize:10,opacity:.8}}>{sPct}%</span>
-              {sDoubles>0&&<span style={{background:"rgba(201,168,76,.3)",color:G.accent,borderRadius:10,padding:"0 5px",fontSize:10}}>{sDoubles}×2</span>}
+      <div style={{marginBottom:14}}>
+        <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{fontSize:11,color:G.muted,fontWeight:700}}>ORDENAR:</span>
+          {[
+            ["album","📋 Álbum"],
+            ["az","🔤 A-Z"],
+            ["pct","📊 % Avance"],
+            ["missing","❌ Más faltantes"],
+          ].map(([k,l])=>(
+            <button key={k} className="btn btn-sm" onClick={()=>setSortOrder(k)}
+              style={{background:sortOrder===k?G.accent:G.border,color:sortOrder===k?"#08100a":G.muted}}>
+              {l}
             </button>
-          );
-        })}
+          ))}
+        </div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {[...SECTIONS].sort((a,b)=>{
+            if(sortOrder==="az") return a.name.localeCompare(b.name,"es");
+            if(sortOrder==="pct"){
+              const pA=Math.round((ALL_CROMOS.filter(c=>c.section===a.id&&data.have.includes(c.id)).length/a.count)*100);
+              const pB=Math.round((ALL_CROMOS.filter(c=>c.section===b.id&&data.have.includes(c.id)).length/b.count)*100);
+              return pB-pA;
+            }
+            if(sortOrder==="missing"){
+              const mA=ALL_CROMOS.filter(c=>c.section===a.id&&!data.have.includes(c.id)).length;
+              const mB=ALL_CROMOS.filter(c=>c.section===b.id&&!data.have.includes(c.id)).length;
+              return mB-mA;
+            }
+            return 0; // album = orden original
+          }).map(s=>{
+            const sCromos  = ALL_CROMOS.filter(c=>c.section===s.id);
+            const sGot     = sCromos.filter(c=>data.have.includes(c.id)).length;
+            const sPct     = Math.round((sGot/s.count)*100);
+            const sDoubles = data.doubles.filter(id=>id.startsWith(s.id)).length;
+            const active   = sec===s.id;
+            const complete = sPct===100;
+            return (
+              <button key={s.id} onClick={()=>setSec(s.id)}
+                style={{padding:"5px 10px",borderRadius:8,
+                  border:`2px solid ${active?s.color:complete?"rgba(76,200,122,.5)":"transparent"}`,
+                  background:active?`${s.color}20`:complete?"rgba(76,200,122,.08)":G.border,
+                  color:active?s.color:complete?G.accent3:G.muted,
+                  cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"Nunito",transition:"all .15s",
+                  display:"flex",alignItems:"center",gap:4}}>
+                {complete?"✅":s.flag} {s.name}
+                <span style={{fontSize:10,opacity:.8}}>{sPct}%</span>
+                {sDoubles>0&&<span style={{background:"rgba(201,168,76,.3)",color:G.accent,borderRadius:10,padding:"0 5px",fontSize:10}}>{sDoubles}×2</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Grid de cromos */}
