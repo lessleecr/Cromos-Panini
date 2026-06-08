@@ -569,7 +569,138 @@ function CromosScreen({ user }) {
       { name:"Rosa",     bg:"#1a0012", header:"#cc0066", headerText:"#ffffff", secBg:"#2a0020", secText:"#ff66cc", needBg:"#001a00", needText:"#66ff88", haveBg:"#001a1a", haveText:"#44ffff", dblBg:"#1a1a00", dblText:"#ffff44" },
       { name:"Plata",    bg:"#0a0f1a", header:"#334466", headerText:"#ffffff", secBg:"#111827", secText:"#aabbcc", needBg:"#1a0000", needText:"#ff8888", haveBg:"#001a00", haveText:"#88ff88", dblBg:"#001a1a", dblText:"#88ffff" },
       { name:"Dorado",   bg:"#0f0a00", header:"#aa7700", headerText:"#ffffff", secBg:"#1a1200", secText:"#ffcc44", needBg:"#1a0000", needText:"#ff6666", haveBg:"#001a00", haveText:"#66ff88", dblBg:"#001a2a", dblText:"#44aaff" },
-  return (
+    ];
+
+    const T = THEMES[Math.floor(Math.random()*THEMES.length)];
+    const W = 1400;
+    const COLS = 20;
+    const COL_W = 58, COL_H = 28, GAP = 2, MARGIN = 16;
+    const ROW_H = COL_H + GAP;
+    const LABEL_W = 180;
+    const gridW = COLS * (COL_W + GAP) - GAP;
+    const totalW = LABEL_W + GAP + gridW + MARGIN * 2;
+
+    function rr(ctx, x, y, w, h, r=4){
+      ctx.beginPath();
+      ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+      ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+      ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+      ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+      ctx.closePath();
+    }
+
+    const HEADER_H = 130, LEGEND_H = 50, FOOTER_H = 40;
+    const H = HEADER_H + SECTIONS.length * (ROW_H + 2) + LEGEND_H + FOOTER_H + 20;
+    const canvas = document.createElement("canvas");
+    canvas.width = totalW; canvas.height = H;
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "#0f1923"; ctx.fillRect(0,0,totalW,H);
+    ctx.strokeStyle="#ffffff08"; ctx.lineWidth=1;
+    for(let x=0;x<totalW;x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for(let y=0;y<H;y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(totalW,y); ctx.stroke(); }
+
+    ctx.fillStyle=T.header; ctx.fillRect(0,0,totalW,160);
+    ctx.font="bold 52px 'Arial Black',Arial"; ctx.fillStyle="#ffffff"; ctx.textAlign="left";
+    ctx.fillText("⚽",MARGIN,100);
+    ctx.fillStyle="#ffffff"; ctx.font="bold 38px 'Arial Black',Arial"; ctx.textAlign="left";
+    ctx.fillText("LA BOLSA DE CROMOS",MARGIN+70,52);
+    ctx.font="bold 22px Arial"; ctx.fillStyle="#C9A84C";
+    ctx.fillText("MUNDIAL 2026 · FIFA WORLD CUP 2026",MARGIN+70,82);
+    ctx.font="18px Arial"; ctx.fillStyle="#aaaaaa";
+    ctx.fillText(`${user.name}${user.provincia?` · 📍 ${user.provincia}${user.canton?`, ${user.canton}`:""}`:""} · ${new Date().toLocaleDateString("es-CR")}`,MARGIN+70,108);
+
+    const statsX = totalW - 420;
+    ctx.fillStyle="#ffffff22"; rr(ctx,statsX,14,400,HEADER_H-24,8); ctx.fill();
+    const sd=[
+      {l:"TENGO",    v:totalHave,    c:"#4CC87A"},
+      {l:"FALTAN",   v:totalMissing, c:"#ff6666"},
+      {l:"DOBLES",   v:doubles.length,c:"#44aaff"},
+      {l:"PROGRESO", v:`${totalPct}%`,c:"#C9A84C"},
+    ];
+    sd.forEach((s,i)=>{
+      const x=statsX+10+i*98;
+      ctx.fillStyle=s.c; ctx.font="bold 30px Arial"; ctx.textAlign="center";
+      ctx.fillText(s.v,x+44,64);
+      ctx.fillStyle="#aaaaaa"; ctx.font="bold 13px Arial";
+      ctx.fillText(s.l,x+44,84);
+    });
+
+    let curY = HEADER_H + 6;
+    ctx.fillStyle="#1e3a5f"; ctx.fillRect(MARGIN,curY,totalW-MARGIN*2,ROW_H);
+    ctx.fillStyle="#C9A84C"; ctx.font="bold 13px Arial"; ctx.textAlign="center";
+    ctx.fillText("SELECCIÓN",MARGIN+LABEL_W/2,curY+ROW_H-8);
+    for(let c=1;c<=COLS;c++){
+      const cx=MARGIN+LABEL_W+GAP+(c-1)*(COL_W+GAP);
+      ctx.fillStyle="#7aaadd"; ctx.font="bold 13px Arial"; ctx.textAlign="center";
+      ctx.fillText(c,cx+COL_W/2,curY+ROW_H-8);
+    }
+    curY+=ROW_H+2;
+
+    SECTIONS.forEach((sec,si)=>{
+      const rowBg = si%2===0?"#111d2e":"#0d1826";
+      ctx.fillStyle=rowBg; ctx.fillRect(MARGIN,curY,totalW-MARGIN*2,ROW_H);
+      ctx.fillStyle=sec.color+"33"; ctx.fillRect(MARGIN,curY,LABEL_W,ROW_H);
+      ctx.strokeStyle=sec.color+"66"; ctx.lineWidth=1;
+      ctx.strokeRect(MARGIN+0.5,curY+0.5,LABEL_W-1,ROW_H-1);
+      ctx.fillStyle="#ffffff"; ctx.font="bold 13px Arial"; ctx.textAlign="left";
+      const shortName = sec.name.length>14?sec.name.slice(0,13)+"…":sec.name;
+      ctx.fillText(`${sec.flag} ${shortName}`,MARGIN+6,curY+ROW_H-8);
+
+      const secCromos = ALL_CROMOS.filter(c=>c.section===sec.id);
+      for(let ci=0;ci<COLS;ci++){
+        const cromo = secCromos[ci];
+        const cx = MARGIN+LABEL_W+GAP+ci*(COL_W+GAP);
+        if(!cromo){ ctx.fillStyle="#0a1020"; ctx.fillRect(cx,curY,COL_W,ROW_H); continue; }
+        const have = data.have.includes(cromo.id);
+        const dbl  = data.doubles.includes(cromo.id);
+        let bg, tc, border;
+        if(dbl)    { bg="#002244"; tc="#44aaff"; border="#44aaff88"; }
+        else if(have){ bg="#003322"; tc="#4CC87A"; border="#4CC87A88"; }
+        else        { bg="#2a0a0a"; tc="#ff6666"; border="#ff666666"; }
+        ctx.fillStyle=bg; ctx.fillRect(cx,curY,COL_W,ROW_H);
+        ctx.strokeStyle=border; ctx.lineWidth=1;
+        ctx.strokeRect(cx+0.5,curY+0.5,COL_W-1,ROW_H-1);
+        ctx.fillStyle=tc; ctx.font="bold 12px Arial"; ctx.textAlign="center";
+        ctx.fillText(cromo.id,cx+COL_W/2,curY+ROW_H-8);
+      }
+      ctx.strokeStyle="#ffffff11"; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(MARGIN,curY+ROW_H); ctx.lineTo(totalW-MARGIN,curY+ROW_H); ctx.stroke();
+      curY+=ROW_H+2;
+    });
+
+    curY+=8;
+    ctx.fillStyle="#1e3a5f"; ctx.fillRect(MARGIN,curY,totalW-MARGIN*2,LEGEND_H);
+    const leyenda=[
+      {bg:"#003322",tc:"#4CC87A",border:"#4CC87A88",label:"Ya lo tengo pegado"},
+      {bg:"#2a0a0a",tc:"#ff6666",border:"#ff666666",label:"Me falta"},
+      {bg:"#002244",tc:"#44aaff",border:"#44aaff88",label:"Tengo doble"},
+    ];
+    let lx=MARGIN+16;
+    leyenda.forEach(({bg,tc,border,label})=>{
+      ctx.fillStyle=bg; ctx.fillRect(lx,curY+12,60,26);
+      ctx.strokeStyle=border; ctx.lineWidth=1; ctx.strokeRect(lx+0.5,curY+12.5,59,25);
+      ctx.fillStyle=tc; ctx.font="bold 12px Arial"; ctx.textAlign="center";
+      ctx.fillText("CROMO",lx+30,curY+29);
+      ctx.fillStyle="#cccccc"; ctx.font="14px Arial"; ctx.textAlign="left";
+      ctx.fillText(label,lx+68,curY+29);
+      lx+=260;
+    });
+
+    curY+=LEGEND_H+4;
+    ctx.fillStyle="#C9A84C"; ctx.fillRect(0,curY,totalW,4);
+    ctx.fillStyle="#1a2d1a"; ctx.fillRect(0,curY+4,totalW,FOOTER_H);
+    ctx.fillStyle="#C9A84C"; ctx.font="bold 16px Arial"; ctx.textAlign="center";
+    ctx.fillText("⚽  labolsadecromos.vercel.app  ·  ¡Encontrá con quién intercambiar cerca tuyo!  ⚽",totalW/2,curY+4+FOOTER_H/2+6);
+
+    canvas.toBlob(blob=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url;
+      a.download=`planilla_${user.username}_${Date.now()}.jpg`;
+      a.click(); URL.revokeObjectURL(url);
+    },"image/jpeg",0.95);
+  };
     <div className="ani">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
         <div className="h1" style={{fontSize:24,letterSpacing:2}}>MI ÁLBUM — <span style={{color:G.accent}}>{user.name}</span></div>
